@@ -83,7 +83,8 @@ int main(int argc, char *argv[])
 
         // Her skal du sandsynligvis sende et svar tilbage
 
-        send(client_fd, buffer, bytes_received, 0);
+        ssize_t bytes_sent =
+            send(client_fd, buffer, bytes_received, 0);
     }
 
     close(client_fd);
