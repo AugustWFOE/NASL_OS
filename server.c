@@ -51,35 +51,38 @@ int main(int argc, char *argv[])
     {
         int client_fd = accept(server_fd, NULL, NULL);
 
-        if (client_fd == -1)
-        {
-            perror("accept");
-            continue;
-        }
+    if (client_fd == -1) {
+        perror("accept");
+        continue;
+    }
 
-        printf("Client connected!\n");
+    printf("Client connected!\n");
 
-        // pthread_create() goes here
+    char buffer[1024];
 
-        char buffer[1024];
+    while (1) {
 
         ssize_t bytes_received =
             recv(client_fd, buffer, sizeof(buffer) - 1, 0);
 
-        if (bytes_received < 0)
-        {
+        if (bytes_received < 0) {
             perror("recv");
+            break;
         }
-        else if (bytes_received == 0)
-        {
+
+        if (bytes_received == 0) {
             printf("Client disconnected\n");
             break;
         }
-        else
-        {
-            buffer[bytes_received] = '\0';
-            printf("Received: %s\n", buffer);
-        }
+
+        buffer[bytes_received] = '\0';
+
+        printf("Received %zd bytes: %s\n",
+               bytes_received,
+               buffer);
+
+        // Her skal du sandsynligvis sende et svar tilbage
+        send(client_fd, response, response_length, 0);
     }
 
     close(client_fd);
