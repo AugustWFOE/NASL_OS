@@ -82,7 +82,8 @@ int main(int argc, char *argv[])
                buffer);
 
         // Her skal du sandsynligvis sende et svar tilbage
-        send(client_fd, response, response_length, 0);
+
+        send(client_fd, buffer, bytes_received, 0);
     }
 
     close(client_fd);
