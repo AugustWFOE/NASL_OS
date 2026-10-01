@@ -51,62 +51,71 @@ int main(int argc, char *argv[])
     {
         int client_fd = accept(server_fd, NULL, NULL);
 
-    if (client_fd == -1) {
-        perror("accept");
-        continue;
-    }
-
-    printf("Client connected!\n");
-
-    char buffer[1024];
-
-    while (1) {
-
-        ssize_t bytes_received =
-            recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-
-        if (bytes_received < 0) {
-            perror("recv");
-            break;
+        if (client_fd == -1)
+        {
+            perror("accept");
+            continue;
         }
 
-        if (bytes_received == 0) {
-            printf("Client disconnected\n");
-            break;
+        printf("Client connected!\n");
+
+        char buffer[1024];
+
+        while (1)
+        {
+
+            ssize_t bytes_received =
+                recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+
+            if (bytes_received < 0)
+            {
+                perror("recv");
+                break;
+            }
+
+            if (bytes_received == 0)
+            {
+                printf("Client disconnected\n");
+                break;
+            }
+
+            buffer[bytes_received] = '\0';
+
+            printf("Received %zd bytes: %s\n",
+                   bytes_received,
+                   buffer);
+
+            // Her skal du sandsynligvis sende et svar tilbage
+
+            uint64_t response = 123456789;
+
+            ssize_t bytes_sent = send(
+                client_fd,
+                &response,
+                sizeof(response),
+                0);
         }
 
-        buffer[bytes_received] = '\0';
+        close(client_fd);
 
-        printf("Received %zd bytes: %s\n",
-               bytes_received,
-               buffer);
+        close(server_fd);
 
-        // Her skal du sandsynligvis sende et svar tilbage
+        //(Provisional name)
 
-        ssize_t bytes_sent =
-            send(client_fd, buffer, bytes_received, 0);
+        // Client might use 5003 as port number
+
+        // inputStore(input);
+
+        // inputHandler(inputStore.getInput());
+
+        // decoder(inputHandler.getHas(), inputHandler.getStart(), inputHandler.getEnd());
+
+        // sender(decoder.getAnswer());
+
+        // while(1){
+        //     //Program probably runs inside here
+
+        // }
+
+        return 0;
     }
-
-    close(client_fd);
-
-    close(server_fd);
-
-    //(Provisional name)
-
-    // Client might use 5003 as port number
-
-    // inputStore(input);
-
-    // inputHandler(inputStore.getInput());
-
-    // decoder(inputHandler.getHas(), inputHandler.getStart(), inputHandler.getEnd());
-
-    // sender(decoder.getAnswer());
-
-    // while(1){
-    //     //Program probably runs inside here
-
-    // }
-
-    return 0;
-}
