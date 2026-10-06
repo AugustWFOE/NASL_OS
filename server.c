@@ -1,3 +1,7 @@
+#define LONESHA256_STATIC
+#include "lonesha256.h"
+#include "messages.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -6,11 +10,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-
-
-
 int main(int argc, char *argv[]) {
-
 
     if(argc < 2 ){
         printf("Please provide port number");
@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
 
     uint16_t port_number = (uint16_t)atoi(argv[1]); //Perhaps this should be validated
 
-        int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (server_fd == -1) {
         perror("socket");
@@ -55,6 +55,51 @@ int main(int argc, char *argv[]) {
         }
 
         printf("Client connected!\n");
+
+        uint8_t req_buf[PACKET_REQUEST_SIZE];
+
+        ssize_t total_read = 0;
+        while (total_read < PACKET_REQUEST_SIZE) {
+            ssize_t bytes = read(client_fd, req_buf + total_read, PACKET_REQUEST_SIZE - total_read);
+            if (bytes <= 0) {
+                break;
+            }
+            total_read += bytes;
+        }
+
+        if (total_read < PACKET_REQUEST_SIZE) {
+            close(client_fd);
+            continue;
+        }
+
+        uint8_t *target_hash = &req_buf[PACKET_REQUEST_HASH_OFFSET];
+
+        uint64_t start_net, end_net;
+        memcpy(&start_net, &req_buf[PACKET_REQUEST_START_OFFSET], sizeof(uint64_t));
+        memcpy(&end_net, &req_buf[PACKET_REQUEST_END_OFFSET], sizeof(uint64_t));
+        uint64_t start = be64toh(start_net);
+        uint64_t end = be64toh(end_net);
+
+        uint8_t priority = req_buf[PACKET_REQUEST_PRIO_OFFSET];
+
+        uint64_t answer=0;
+        uint8_t hash[32]; 
+
+        for (uint64_t i = start; i <= end; i++) {
+            uint64_t le_val = htole64(i);
+
+            lonesha256(hash, (const unsigned char *)&le_val, sizeof(le_val));
+
+            if (memcmp(hash, target_hash, 32) == 0) {
+                answer = i;
+                break;
+            }
+        }
+
+        uint64_t answer_net = htobe64(answer);
+        write(client_fd, &answer_net, PACKET_RESPONSE_SIZE);
+
+        printf("[server] %llu\n", (unsigned long long)answer);
 
         // pthread_create() goes here
 
