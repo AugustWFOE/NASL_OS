@@ -112,10 +112,6 @@ int main(int argc, char *argv[])
 
         close(client_fd);
 
-        close(server_fd);
-
-        //(Provisional name)
-
         // Client might use 5003 as port number
 
         // inputStore(input);
@@ -131,6 +127,9 @@ int main(int argc, char *argv[])
 
         // }
 
-        return 0;
+
     }
+
+    close(server_fd);
+    return 0;
 }
