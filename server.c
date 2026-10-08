@@ -64,6 +64,8 @@ int main(int argc, char *argv[])
         printf("Client connected!\n");
 
         uint8_t req_buf[PACKET_REQUEST_SIZE];
+        
+        printf("1\n");
 
         ssize_t total_read = 0;
         while (total_read < PACKET_REQUEST_SIZE) {
@@ -72,9 +74,11 @@ int main(int argc, char *argv[])
                 break;
             }
             total_read += bytes;
+            printf("2\n");
         }
-
+         printf("out read\n");
         if (total_read < PACKET_REQUEST_SIZE) {
+            printf("3 error\n");
             close(client_fd);
             continue;
         }
@@ -91,19 +95,21 @@ int main(int argc, char *argv[])
 
         uint64_t answer=0;
         uint8_t hash[32]; 
-
+        printf("4 val split\n");
         for (uint64_t i = start; i <= end; i++) {
             uint64_t le_val = htole64(i);
 
             lonesha256(hash, (const unsigned char *)&le_val, sizeof(le_val));
-
+            printf("5 finding hash\n");
             if (memcmp(hash, target_hash, 32) == 0) {
                 answer = i;
+                printf("6 hit\n");
                 break;
             }
         }
 
         uint64_t answer_net = htobe64(answer);
+        printf("7 write answer\n");
         write(client_fd, &answer_net, PACKET_RESPONSE_SIZE);
 
         printf("[server] %llu\n", (unsigned long long)answer);
