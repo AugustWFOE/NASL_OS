@@ -64,21 +64,19 @@ int main(int argc, char *argv[])
         printf("Client connected!\n");
 
         uint8_t req_buf[PACKET_REQUEST_SIZE];
-        
-        printf("1\n");
 
         ssize_t total_read = 0;
-        while (total_read < PACKET_REQUEST_SIZE) {
+        while (total_read < PACKET_REQUEST_SIZE)
+        {
             ssize_t bytes = read(client_fd, req_buf + total_read, PACKET_REQUEST_SIZE - total_read);
-            if (bytes <= 0) {
+            if (bytes <= 0)
+            {
                 break;
             }
             total_read += bytes;
-            printf("2\n");
         }
-         printf("out read\n");
-        if (total_read < PACKET_REQUEST_SIZE) {
-            printf("3 error\n");
+        if (total_read < PACKET_REQUEST_SIZE)
+        {
             close(client_fd);
             continue;
         }
@@ -93,23 +91,31 @@ int main(int argc, char *argv[])
 
         uint8_t priority = req_buf[PACKET_REQUEST_PRIO_OFFSET];
 
-        uint64_t answer=0;
-        uint8_t hash[32]; 
-        printf("4 val split\n");
-        for (uint64_t i = start; i <= end; i++) {
+        uint64_t answer = 0;
+        uint8_t hash[32];
+
+        for (uint64_t i = start; i <= end; i++)
+        {
             uint64_t le_val = htole64(i);
 
             lonesha256(hash, (const unsigned char *)&le_val, sizeof(le_val));
-            printf("5 finding hash\n");
-            if (memcmp(hash, target_hash, 32) == 0) {
+            
+            printf("Hash: ");
+            for (int i = 0; i < 32; i++)
+            {
+                printf("%02x", hash[i]);
+            }
+            printf("\n");
+
+            if (memcmp(hash, target_hash, 32) == 0)
+            {
                 answer = i;
-                printf("6 hit\n");
                 break;
             }
         }
 
         uint64_t answer_net = htobe64(answer);
-        printf("7 write answer\n");
+
         write(client_fd, &answer_net, PACKET_RESPONSE_SIZE);
 
         printf("[server] %llu\n", (unsigned long long)answer);
@@ -132,8 +138,6 @@ int main(int argc, char *argv[])
         //     //Program probably runs inside here
 
         // }
-
-
     }
 
     close(server_fd);
