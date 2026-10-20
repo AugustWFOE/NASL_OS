@@ -10,13 +10,16 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+//public field
+uint8_t *target_hash;
+
 void *decoder_Thread(void *args)
 {
-    uint8_t *return_answer[32];
+    uint64_t *return_answer = 0;
 
-
-    uint64_t start = *args[0];
-    uint64_t end = *args[1];
+    uint64_t *interval = (uint64_t)*args;
+    uint64_t start = interval[0];
+    uint64_t end = interval[1];
 
     uint8_t hash[32];
 
@@ -32,7 +35,7 @@ void *decoder_Thread(void *args)
             break;
         }
     }
-    if (result == NULL) {
+    if (return_answer == NULL) {
         return NULL;
     }
 
@@ -40,7 +43,7 @@ void *decoder_Thread(void *args)
 }
 
 
-    uint8_t *target_hash;
+   
 
 
     int main(int argc, char *argv[])
@@ -152,7 +155,7 @@ void *decoder_Thread(void *args)
             }
 
             pthread_join(thread, return_answer);
-            
+
             if(return_answer != NULL){
                 answer = return_answer;
             }
