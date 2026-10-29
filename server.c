@@ -157,20 +157,28 @@ void* answeringMachine(void* client){
 
 }
 
-uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash)
-    uint64_t answer = 0;
-    uint8_t hash[32]; 
-    for (uint64_t i = start; ; i++) {
-            uint64_t le_val = htole64(i);
+uint64_t loneshaSolver(uint64_t start, uint64_t end,
+                       const uint8_t *target_hash)
+{
+    uint8_t hash[32];
 
-            lonesha256(hash, (const unsigned char *)&le_val, sizeof(le_val));
+    if (start > end)
+        return 0;
 
-            if (memcmp(hash, target_hash, 32) == 0) {
-                answer = i;
-                break;
-            }
-            if (i == end){
-                break;
-        }
-    return answer;
+    for (uint64_t i = start; ; i++)
+    {
+        uint64_t le_val = htole64(i);
+
+        lonesha256(hash,
+                   (const unsigned char *)&le_val,
+                   sizeof(le_val));
+
+        if (memcmp(hash, target_hash, 32) == 0)
+            return i;
+
+        if (i == end)
+            break;
+    }
+
+    return 0;
 }
