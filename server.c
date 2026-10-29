@@ -84,11 +84,11 @@ int main(int argc, char *argv[])
         uint8_t req_buf[PACKET_REQUEST_SIZE];
 
         
-        if (checkRequestSize(client_fd, req_buf) != 1)
-        {
-            close(client_fd);
-            continue;
-        }
+        // if (checkRequestSize(client_fd, req_buf) != 1)
+        // {
+        //     close(client_fd);
+        //     continue;
+        // }
 
         uint64_t start_net, end_net;
         memcpy(&start_net, &req_buf[PACKET_REQUEST_START_OFFSET], sizeof(uint64_t));
@@ -142,10 +142,11 @@ void *answeringMachine(void *arg)
 
     uint64_t answer_net = htobe64(answer);
 
-    write(
+    ssize_t bytes = send(
         newrequest->client_fd,
         &answer_net,
-        PACKET_RESPONSE_SIZE
+        PACKET_RESPONSE_SIZE,
+        MSG_NOSIGNAL
     );
 
     printf("[server] %llu\n",
