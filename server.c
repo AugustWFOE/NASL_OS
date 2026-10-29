@@ -51,27 +51,45 @@ int main(int argc, char *argv[])
 
     printf("Server listening on port %u\n", port_number);
 
-    uint8_t threadcounter = 3;
     while (1)
     {
+        int *client_fd_ptr = malloc(sizeof(int));
+        if (client_fd_ptr == NULL)
+        {
+            perror("malloc");
+            continue;
+        }
 
-        pthread_create(&thread1, NULL, answeringMachine, &server_fd);
-        pthread_create(&thread2, NULL, answeringMachine, &server_fd)
-        ptbhread_create(&thread3, NULL, answeringMachine, &server_fd)
+        *client_fd_ptr = accept(server_fd, NULL, NULL);
+        if (*client_fd_ptr == -1)
+        {
+            perror("accept");
+            free(client_fd_ptr);
+            continue;
+        }
+
+        pthread_t thread;
+
+        if (pthread_create(&thread, NULL, answeringMachine, client_fd_ptr) != 0)
+        {
+            perror("pthread_create");
+            close(*client_fd_ptr);
+            free(client_fd_ptr);
+        }
+        else
+        {
+            pthread_detach(thread);
+        }
     }
 
     close(server_fd);
     return 0;
 }
 
-int answeringMachine(int server_fd){
-        int client_fd = accept(server_fd, NULL, NULL);
+void* answeringMachine(void* client){
+        int client_fd = (*(int *)client);
+        free(client);
 
-        if (client_fd == -1)
-        {
-            perror("accept");
-            continue;
-        }
         printf("Client connected!\n");
         
         uint8_t req_buf[PACKET_REQUEST_SIZE];
@@ -87,7 +105,7 @@ int answeringMachine(int server_fd){
 
         if (total_read < PACKET_REQUEST_SIZE) {
             close(client_fd);
-            return 1;
+            return NULL;
         }
 
         uint8_t *target_hash = &req_buf[PACKET_REQUEST_HASH_OFFSET];
@@ -109,11 +127,9 @@ int answeringMachine(int server_fd){
 
         printf("[server] %llu\n", (unsigned long long)answer);
 
+        return NULL;
+
         // pthread_create() goes here
-
-        
-
-        return 1;
 
         // Client might use 5003 as port number
 
