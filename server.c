@@ -16,14 +16,15 @@
 
 void *answeringMachine(void *client);
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
+int checkRequestSize(void* client, uint8_t req_buf);
 
 
 struct request {
     uint64_t start;
     uint64_t end;
     uint64_t hash;
-    float32_t worth;
-}
+    uint64_t waste;
+};
 
 int main(int argc, char *argv[])
 {   
@@ -84,7 +85,7 @@ int main(int argc, char *argv[])
 
         pthread_t thread;
         //
-        int client_fd = (*(int *)client);
+        int client_fd = (*(int *)client_fd_ptr);
         free(client);
 
         printf("Client connected!\n");
@@ -107,7 +108,7 @@ int main(int argc, char *argv[])
         newrequest.hash = &req_buf[PACKET_REQUEST_HASH_OFFSET];
         newrequest.start = be64toh(start_net);
         newrequest.end = be64toh(end_net);
-        newrequest.worth = priority/(end-start);
+        newrequest.waste = (newrequest.end-newrequest.start)/priority;
 
 
 
