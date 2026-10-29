@@ -51,8 +51,20 @@ int main(int argc, char *argv[])
 
     printf("Server listening on port %u\n", port_number);
 
+    uint8_t threadcounter = 3;
     while (1)
     {
+
+        pthread_create(&thread1, NULL, answeringMachine, &server_fd);
+        pthread_create(&thread2, NULL, answeringMachine, &server_fd)
+        ptbhread_create(&thread3, NULL, answeringMachine, &server_fd)
+    }
+
+    close(server_fd);
+    return 0;
+}
+
+int answeringMachine(int server_fd){
         int client_fd = accept(server_fd, NULL, NULL);
 
         if (client_fd == -1)
@@ -60,9 +72,8 @@ int main(int argc, char *argv[])
             perror("accept");
             continue;
         }
-
         printf("Client connected!\n");
-
+        
         uint8_t req_buf[PACKET_REQUEST_SIZE];
 
         ssize_t total_read = 0;
@@ -76,7 +87,7 @@ int main(int argc, char *argv[])
 
         if (total_read < PACKET_REQUEST_SIZE) {
             close(client_fd);
-            continue;
+            return 1;
         }
 
         uint8_t *target_hash = &req_buf[PACKET_REQUEST_HASH_OFFSET];
@@ -90,18 +101,8 @@ int main(int argc, char *argv[])
         uint8_t priority = req_buf[PACKET_REQUEST_PRIO_OFFSET];
 
         uint64_t answer=0;
-        uint8_t hash[32]; 
 
-        for (uint64_t i = start; i <= end; i++) {
-            uint64_t le_val = htole64(i);
-
-            lonesha256(hash, (const unsigned char *)&le_val, sizeof(le_val));
-
-            if (memcmp(hash, target_hash, 32) == 0) {
-                answer = i;
-                break;
-            }
-        }
+        answer = loneshaSolver(start, end, target_hash);
 
         uint64_t answer_net = htobe64(answer);
         write(client_fd, &answer_net, PACKET_RESPONSE_SIZE);
@@ -110,7 +111,9 @@ int main(int argc, char *argv[])
 
         // pthread_create() goes here
 
-        close(client_fd);
+        
+
+        return 1;
 
         // Client might use 5003 as port number
 
@@ -128,8 +131,20 @@ int main(int argc, char *argv[])
         // }
 
 
-    }
+}
 
-    close(server_fd);
-    return 0;
+uint64_t loneshaSolver(uint64_t start, uint64_t end, uint8_t target_hash){
+    uint64_t answer = 0;
+    uint8_t hash[32]; 
+    for (uint64_t i = start; i <= end; i++) {
+            uint64_t le_val = htole64(i);
+
+            lonesha256(hash, (const unsigned char *)&le_val, sizeof(le_val));
+
+            if (memcmp(hash, target_hash, 32) == 0) {
+                answer = i;
+                break;
+            }
+        }
+    return answer;
 }
