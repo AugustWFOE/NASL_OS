@@ -16,14 +16,15 @@
 
 void *answeringMachine(void *client);
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
-int checkRequestSize(void* client, uint8_t req_buf);
+int checkRequestSize(int client_fd, uint8_t *req_buf);
 
 
 struct request {
     uint64_t start;
     uint64_t end;
-    uint64_t hash;
+    uint8_t hash[32];
     uint64_t waste;
+    int client_fd;
 };
 
 int main(int argc, char *argv[])
@@ -68,33 +69,25 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-        int *client_fd_ptr = malloc(sizeof(int));
-        if (client_fd_ptr == NULL)
-        {
-            perror("malloc");
-            continue;
-        }
+       int client_fd = accept(server_fd, NULL, NULL);
 
-        *client_fd_ptr = accept(server_fd, NULL, NULL);
-        if (*client_fd_ptr == -1)
+        if (client_fd == -1)
         {
             perror("accept");
-            free(client_fd_ptr);
             continue;
         }
-
         pthread_t thread;
         //
-        int client_fd = (*(int *)client_fd_ptr);
-        free(client_fd_ptr);
 
         printf("Client connected!\n");
         
         uint8_t req_buf[PACKET_REQUEST_SIZE];
 
         
-        if (checkRequestSize != 1){
-            return NULL;
+        if (checkRequestSize(client_fd, req_buf) != 1)
+        {
+            close(client_fd);
+            continue;
         }
 
         uint64_t start_net, end_net;
@@ -103,22 +96,29 @@ int main(int argc, char *argv[])
         
         uint8_t priority = req_buf[PACKET_REQUEST_PRIO_OFFSET];
 
-        struct request newrequest;
+        struct request *newrequest = malloc(sizeof(struct request));
 
-        newrequest.hash = &req_buf[PACKET_REQUEST_HASH_OFFSET];
-        newrequest.start = be64toh(start_net);
-        newrequest.end = be64toh(end_net);
-        newrequest.waste = (newrequest.end-newrequest.start)/priority;
+        if (newrequest == NULL)
+        {
+            perror("malloc");
+            close(client_fd);
+            continue;
+        }
 
-
-
+        newrequest->start = be64toh(start_net);
+        newrequest->end = be64toh(end_net);
+        newrequest->client_fd = client_fd;
+        newrequest->waste = (newrequest->end - newrequest->start) / priority;
+        memcpy(
+            newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
+        
 
         //
         if (pthread_create(&thread, NULL, answeringMachine, newrequest) != 0)
         {
             perror("pthread_create");
-            close(*client_fd_ptr);
-            free(client_fd_ptr);
+            close(client_fd);
+            free(newrequest);
         }
         else
         {
@@ -130,38 +130,32 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void* answeringMachine(struct request newrequest){
-        
-        uint64_t answer= 0;
+void *answeringMachine(void *arg)
+{
+    struct request *newrequest = (struct request *)arg;
 
-        answer = loneshaSolver(newrequest.start, newrequest.end, newrequest.hash);
+    uint64_t answer = loneshaSolver(
+        newrequest->start,
+        newrequest->end,
+        newrequest->hash
+    );
 
-        uint64_t answer_net = htobe64(answer);
-        write(client_fd, &answer_net, PACKET_RESPONSE_SIZE);
+    uint64_t answer_net = htobe64(answer);
 
-        printf("[server] %llu\n", (unsigned long long)answer);
+    write(
+        newrequest->client_fd,
+        &answer_net,
+        PACKET_RESPONSE_SIZE
+    );
 
-        close(client_fd);
+    printf("[server] %llu\n",
+           (unsigned long long)answer);
 
-        return NULL;
-        // pthread_create() goes here
+    close(newrequest->client_fd);
 
-        // Client might use 5003 as port number
+    free(newrequest);
 
-        // inputStore(input);
-
-        // inputHandler(inputStore.getInput());
-
-        // decoder(inputHandler.getHas(), inputHandler.getStart(), inputHandler.getEnd());
-
-        // sender(decoder.getAnswer());
-
-        // while(1){
-        //     //Program probably runs inside here
-
-        // }
-
-
+    return NULL;
 }
 
 uint64_t loneshaSolver(uint64_t start, uint64_t end,
@@ -190,7 +184,7 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
     return 0;
 }
 
-int checkRequestSize(void* client, uint8_t req_buf){
+int checkRequestSize(int client_fd, uint8_t *req_buf){
     ssize_t total_read = 0;
         while (total_read < PACKET_REQUEST_SIZE) {
             ssize_t bytes = read(client_fd, req_buf + total_read, PACKET_REQUEST_SIZE - total_read);
@@ -200,9 +194,10 @@ int checkRequestSize(void* client, uint8_t req_buf){
             total_read += bytes;
         }
 
-        if (total_read < PACKET_REQUEST_SIZE) {
-            close(client_fd);
+        if (total_read < PACKET_REQUEST_SIZE)
+        {
             return 0;
         }
+
         return 1;
 }
