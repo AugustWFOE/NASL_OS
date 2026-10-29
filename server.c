@@ -13,6 +13,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <endian.h>
+#include <semaphore.h>
+
+sem_t thread_slots;
 
 void *answeringMachine(void *client);
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
@@ -115,9 +118,14 @@ int main(int argc, char *argv[])
         
 
         //
+        sem_wait(&thread_slots);
+
         if (pthread_create(&thread, NULL, answeringMachine, newrequest) != 0)
         {
             perror("pthread_create");
+
+            sem_post(&thread_slots);
+
             close(client_fd);
             free(newrequest);
         }
@@ -161,6 +169,8 @@ void *answeringMachine(void *arg)
     close(newrequest->client_fd);
 
     free(newrequest);
+
+    sem_post(&thread_slots);
 
     return NULL;
 }
