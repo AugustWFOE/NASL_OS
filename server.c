@@ -29,8 +29,9 @@ struct request {
     uint64_t waste;
     int client_fd;
 };
+// struct request queue[];
 
-#define MAX_THREADS 4
+#define MAX_THREADS 3
 
 int main(int argc, char *argv[])
 {   
