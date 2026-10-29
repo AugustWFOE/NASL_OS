@@ -54,17 +54,6 @@ int main(int argc, char *argv[])
     uint8_t threadcounter = 3;
     while (1)
     {
-
-        pthread_create(&thread1, NULL, answeringMachine, &server_fd);
-        pthread_create(&thread2, NULL, answeringMachine, &server_fd)
-        ptbhread_create(&thread3, NULL, answeringMachine, &server_fd)
-    }
-
-    close(server_fd);
-    return 0;
-}
-
-int answeringMachine(int server_fd){
         int client_fd = accept(server_fd, NULL, NULL);
 
         if (client_fd == -1)
@@ -73,7 +62,7 @@ int answeringMachine(int server_fd){
             continue;
         }
         printf("Client connected!\n");
-        
+        printf("I have changed !!!!!\n");
         uint8_t req_buf[PACKET_REQUEST_SIZE];
 
         ssize_t total_read = 0;
@@ -91,6 +80,16 @@ int answeringMachine(int server_fd){
         }
 
         uint8_t *target_hash = &req_buf[PACKET_REQUEST_HASH_OFFSET];
+
+        pthread_create(&thread1, NULL, answeringMachine, &target_hash);
+    }
+
+    close(server_fd);
+    return 0;
+}
+
+int answeringMachine(int request_hash){
+        
 
         uint64_t start_net, end_net;
         memcpy(&start_net, &req_buf[PACKET_REQUEST_START_OFFSET], sizeof(uint64_t));
