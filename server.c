@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
         pthread_t thread;
         //
         int client_fd = (*(int *)client_fd_ptr);
-        free(client);
+        free(client_fd_ptr);
 
         printf("Client connected!\n");
         
@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
 
 
         //
-        if (pthread_create(&thread, NULL, answeringMachine, client_fd_ptr) != 0)
+        if (pthread_create(&thread, NULL, answeringMachine, newrequest) != 0)
         {
             perror("pthread_create");
             close(*client_fd_ptr);
@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void* answeringMachine(void* client){
+void* answeringMachine(struct request newrequest){
         
         uint64_t answer= 0;
 
