@@ -82,6 +82,7 @@ int main(int argc, char *argv[])
         uint8_t *target_hash = &req_buf[PACKET_REQUEST_HASH_OFFSET];
 
         pthread_create(&thread1, NULL, answeringMachine, &target_hash);
+        close(client_fd);
     }
 
     close(server_fd);
