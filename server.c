@@ -84,11 +84,11 @@ int main(int argc, char *argv[])
         uint8_t req_buf[PACKET_REQUEST_SIZE];
 
         
-        // if (checkRequestSize(client_fd, req_buf) != 1)
-        // {
-        //     close(client_fd);
-        //     continue;
-        // }
+        if (checkRequestSize(client_fd, req_buf) != 1)
+        {
+            close(client_fd);
+            continue;
+        }
         printf("Request successfully received!\n");
 
         uint64_t start_net, end_net;
