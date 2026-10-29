@@ -89,6 +89,7 @@ int main(int argc, char *argv[])
         //     close(client_fd);
         //     continue;
         // }
+        printf("Request successfully received!\n");
 
         uint64_t start_net, end_net;
         memcpy(&start_net, &req_buf[PACKET_REQUEST_START_OFFSET], sizeof(uint64_t));
@@ -132,8 +133,13 @@ int main(int argc, char *argv[])
 
 void *answeringMachine(void *arg)
 {
+    printf("Worker thread started!\n");
     struct request *newrequest = (struct request *)arg;
-
+    printf(
+        "Searching from %llu to %llu\n",
+        (unsigned long long)newrequest->start,
+        (unsigned long long)newrequest->end
+    );
     uint64_t answer = loneshaSolver(
         newrequest->start,
         newrequest->end,
