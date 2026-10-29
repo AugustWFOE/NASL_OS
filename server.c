@@ -30,7 +30,7 @@ struct request {
     int client_fd;
 };
 
-#define MAX_THREADS 3
+#define MAX_THREADS 2
 
 int main(int argc, char *argv[])
 {   
