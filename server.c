@@ -10,6 +10,13 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#include <stdint.h>
+#include <string.h>
+#include <endian.h>
+
+void *answeringMachine(void *client);
+uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
+
 int main(int argc, char *argv[])
 {
 
@@ -127,8 +134,9 @@ void* answeringMachine(void* client){
 
         printf("[server] %llu\n", (unsigned long long)answer);
 
-        return NULL;
+        close(client_fd);
 
+        return NULL;
         // pthread_create() goes here
 
         // Client might use 5003 as port number
@@ -149,10 +157,10 @@ void* answeringMachine(void* client){
 
 }
 
-uint64_t loneshaSolver(uint64_t start, uint64_t end, uint8_t target_hash){
+uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash)
     uint64_t answer = 0;
     uint8_t hash[32]; 
-    for (uint64_t i = start; i <= end; i++) {
+    for (uint64_t i = start; ; i++) {
             uint64_t le_val = htole64(i);
 
             lonesha256(hash, (const unsigned char *)&le_val, sizeof(le_val));
@@ -161,6 +169,8 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end, uint8_t target_hash){
                 answer = i;
                 break;
             }
+            if (i == end){
+                break;
         }
     return answer;
 }
