@@ -54,13 +54,6 @@ int main(int argc, char *argv[])
     uint8_t threadcounter = 3;
     while (1)
     {
-        int client_fd = accept(server_fd, NULL, NULL);
-
-        if (client_fd == -1)
-        {
-            perror("accept");
-            continue;
-        }
 
         printf("Client connected!\n");
             pthread_create(&thread1, NULL, answeringMachine, &server_fd);
@@ -73,7 +66,13 @@ int main(int argc, char *argv[])
 }
 
 int answeringMachine(int server_fd){
-    
+        int client_fd = accept(server_fd, NULL, NULL);
+
+        if (client_fd == -1)
+        {
+            perror("accept");
+            continue;
+        }
 
         uint8_t req_buf[PACKET_REQUEST_SIZE];
 
