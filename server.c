@@ -27,11 +27,6 @@ struct request {
 
 int main(int argc, char *argv[])
 {   
-
-
-
-    
-
     if (argc < 2)
     {
         printf("Please provide port number");
@@ -88,7 +83,36 @@ int main(int argc, char *argv[])
         }
 
         pthread_t thread;
+        //
+        int client_fd = (*(int *)client);
+        free(client);
 
+        printf("Client connected!\n");
+        
+        uint8_t req_buf[PACKET_REQUEST_SIZE];
+
+        
+        if (checkRequestSize != 1){
+            return NULL;
+        }
+
+        uint64_t start_net, end_net;
+        memcpy(&start_net, &req_buf[PACKET_REQUEST_START_OFFSET], sizeof(uint64_t));
+        memcpy(&end_net, &req_buf[PACKET_REQUEST_END_OFFSET], sizeof(uint64_t));
+        
+        uint8_t priority = req_buf[PACKET_REQUEST_PRIO_OFFSET];
+
+        struct request newrequest;
+
+        newrequest.hash = &req_buf[PACKET_REQUEST_HASH_OFFSET];
+        newrequest.start = be64toh(start_net);
+        newrequest.end = be64toh(end_net);
+        newrequest.worth = priority/(end-start);
+
+
+
+
+        //
         if (pthread_create(&thread, NULL, answeringMachine, client_fd_ptr) != 0)
         {
             perror("pthread_create");
@@ -106,42 +130,7 @@ int main(int argc, char *argv[])
 }
 
 void* answeringMachine(void* client){
-        int client_fd = (*(int *)client);
-        free(client);
-
-        printf("Client connected!\n");
         
-        uint8_t req_buf[PACKET_REQUEST_SIZE];
-
-        ssize_t total_read = 0;
-        while (total_read < PACKET_REQUEST_SIZE) {
-            ssize_t bytes = read(client_fd, req_buf + total_read, PACKET_REQUEST_SIZE - total_read);
-            if (bytes <= 0) {
-                break;
-            }
-            total_read += bytes;
-        }
-
-        if (total_read < PACKET_REQUEST_SIZE) {
-            close(client_fd);
-            return NULL;
-        }
-
-
-        uint64_t start_net, end_net;
-        memcpy(&start_net, &req_buf[PACKET_REQUEST_START_OFFSET], sizeof(uint64_t));
-        memcpy(&end_net, &req_buf[PACKET_REQUEST_END_OFFSET], sizeof(uint64_t));
-        
-        uint8_t priority = req_buf[PACKET_REQUEST_PRIO_OFFSET];
-
-        struct request newrequest;
-
-        newrequest.hash = &req_buf[PACKET_REQUEST_HASH_OFFSET];
-        newrequest.start = be64toh(start_net);
-        newrequest.end = be64toh(end_net);
-        newrequest.worth = priority/(end-start);
-        
-
         uint64_t answer= 0;
 
         answer = loneshaSolver(newrequest.start, newrequest.end, newrequest.hash);
@@ -198,4 +187,21 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
     }
 
     return 0;
+}
+
+int checkRequestSize(void* client, uint8_t req_buf){
+    ssize_t total_read = 0;
+        while (total_read < PACKET_REQUEST_SIZE) {
+            ssize_t bytes = read(client_fd, req_buf + total_read, PACKET_REQUEST_SIZE - total_read);
+            if (bytes <= 0) {
+                break;
+            }
+            total_read += bytes;
+        }
+
+        if (total_read < PACKET_REQUEST_SIZE) {
+            close(client_fd);
+            return 0;
+        }
+        return 1;
 }
