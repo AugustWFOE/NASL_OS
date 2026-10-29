@@ -55,10 +55,9 @@ int main(int argc, char *argv[])
     while (1)
     {
 
-        printf("Client connected!\n");
-            pthread_create(&thread1, NULL, answeringMachine, &server_fd);
-            pthread_create(&thread2, NULL, answeringMachine, &server_fd)
-            ptbhread_create(&thread3, NULL, answeringMachine, &server_fd)
+        pthread_create(&thread1, NULL, answeringMachine, &server_fd);
+        pthread_create(&thread2, NULL, answeringMachine, &server_fd)
+        ptbhread_create(&thread3, NULL, answeringMachine, &server_fd)
     }
 
     close(server_fd);
@@ -73,7 +72,8 @@ int answeringMachine(int server_fd){
             perror("accept");
             continue;
         }
-
+        printf("Client connected!\n");
+        
         uint8_t req_buf[PACKET_REQUEST_SIZE];
 
         ssize_t total_read = 0;
