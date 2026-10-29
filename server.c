@@ -17,8 +17,20 @@
 void *answeringMachine(void *client);
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
 
+
+struct request {
+    uint64_t start;
+    uint64_t end;
+    uint64_t hash;
+    float32_t worth;
+}
+
 int main(int argc, char *argv[])
-{
+{   
+
+
+
+    
 
     if (argc < 2)
     {
@@ -115,19 +127,24 @@ void* answeringMachine(void* client){
             return NULL;
         }
 
-        uint8_t *target_hash = &req_buf[PACKET_REQUEST_HASH_OFFSET];
 
         uint64_t start_net, end_net;
         memcpy(&start_net, &req_buf[PACKET_REQUEST_START_OFFSET], sizeof(uint64_t));
         memcpy(&end_net, &req_buf[PACKET_REQUEST_END_OFFSET], sizeof(uint64_t));
-        uint64_t start = be64toh(start_net);
-        uint64_t end = be64toh(end_net);
-
+        
         uint8_t priority = req_buf[PACKET_REQUEST_PRIO_OFFSET];
 
-        uint64_t answer=0;
+        struct request newrequest;
 
-        answer = loneshaSolver(start, end, target_hash);
+        newrequest.hash = &req_buf[PACKET_REQUEST_HASH_OFFSET];
+        newrequest.start = be64toh(start_net);
+        newrequest.end = be64toh(end_net);
+        newrequest.worth = priority/(end-start);
+        
+
+        uint64_t answer= 0;
+
+        answer = loneshaSolver(newrequest.start, newrequest.end, newrequest.hash);
 
         uint64_t answer_net = htobe64(answer);
         write(client_fd, &answer_net, PACKET_RESPONSE_SIZE);
