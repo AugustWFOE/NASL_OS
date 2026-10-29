@@ -30,6 +30,8 @@ struct request {
     int client_fd;
 };
 
+#define MAX_THREADS 4
+
 int main(int argc, char *argv[])
 {   
     if (argc < 2)
@@ -37,6 +39,11 @@ int main(int argc, char *argv[])
         printf("Please provide port number");
         return 1;
     };
+    if (sem_init(&thread_slots, 0, MAX_THREADS) == -1)
+    {
+        perror("sem_init");
+        return 1;
+    }
 
     uint16_t port_number = (uint16_t)atoi(argv[1]); // Perhaps this should be validated
 
