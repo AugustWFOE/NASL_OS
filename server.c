@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-int main(int argc, char *argv[]) Hej
+int main(int argc, char *argv[])
 {
 
     if (argc < 2)
