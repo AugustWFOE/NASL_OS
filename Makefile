@@ -1,6 +1,7 @@
 CC = gcc
 
 CFLAGS = -Wall -Wextra -g
+LIBS = -lpthread -lm
 
 server: server.c
 	$(CC) $(CFLAGS) server.c -o server
