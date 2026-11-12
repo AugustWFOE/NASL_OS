@@ -175,15 +175,6 @@ void *answeringMachine(void *arg)
 {
     printf("Worker thread started!\n");
     struct request *newrequest = (struct request *)arg;
-    printf(
-        "Searching from %llu to %llu\n",
-        (unsigned long long)newrequest->start,
-        (unsigned long long)newrequest->end
-    );
-    printf("[fd=%d] Searching from %llu to %llu\n",
-       newrequest->client_fd,
-       (unsigned long long)newrequest->start,
-       (unsigned long long)newrequest->end);
     uint64_t answer = loneshaSolver(
         newrequest->start,
         newrequest->end,
@@ -193,45 +184,34 @@ void *answeringMachine(void *arg)
     uint64_t answer_net = htobe64(answer);
     
     size_t total_sent = 0;
-const uint8_t *buf = (const uint8_t *)&answer_net;
+    const uint8_t *buf = (const uint8_t *)&answer_net;
 
-while (total_sent < PACKET_RESPONSE_SIZE)
-{
-    ssize_t bytes = send(
-        newrequest->client_fd,
-        buf + total_sent,
-        PACKET_RESPONSE_SIZE - total_sent,
-        MSG_NOSIGNAL
-    );
-
-    if (bytes < 0)
+    while (total_sent < PACKET_RESPONSE_SIZE)
     {
-        if (errno == EINTR)
-            continue;
+        ssize_t bytes = send(
+            newrequest->client_fd,
+            buf + total_sent,
+            PACKET_RESPONSE_SIZE - total_sent,
+            MSG_NOSIGNAL
+        );
 
-        perror("send");
-        break;
+        if (bytes < 0)
+        {
+            if (errno == EINTR)
+                continue;
+
+            perror("send");
+            break;
+        }
+
+        if (bytes == 0)
+        {
+            fprintf(stderr, "send returned 0\n");
+            break;
+        }
+
+        total_sent += (size_t)bytes;
     }
-
-    if (bytes == 0)
-    {
-        fprintf(stderr, "send returned 0\n");
-        break;
-    }
-
-    total_sent += (size_t)bytes;
-}
-
-printf("[fd=%d] Sent %zu/%d bytes\n",
-       newrequest->client_fd,
-       total_sent,
-       PACKET_RESPONSE_SIZE);
-    printf("[fd=%d] Answer: %llu\n",
-       newrequest->client_fd,
-       (unsigned long long)answer);
-
-    printf("[server] %llu\n",
-           (unsigned long long)answer);
 
     close(newrequest->client_fd);
 
