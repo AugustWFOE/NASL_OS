@@ -219,9 +219,10 @@ void *adventurer(void *arg) {
         printf("Quest accepted!\n");
         
         printf(
-            "Searching from %llu to %llu\n",
+            "Searching from %llu to %llu with interval %llu\n",
             (unsigned long long)quest->start,
-            (unsigned long long)quest->end
+            (unsigned long long)quest->end,
+            (unsigned long long)quest->interval
         );
     
         uint64_t answer = loneshaSolver(
