@@ -20,15 +20,15 @@ sem_t thread_slots;
 void *answeringMachine(void *client);
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
 int checkRequestSize(int client_fd, uint8_t *req_buf);
-void requestScheduler(uint64_t interval, uint64_t prio);
-struct request getRequest();
+void requestScheduler(void *arg);
+struct request getRequest(void);
 
 struct request {
     uint64_t start;
     uint64_t end;
     uint8_t hash[32];
     uint64_t interval;
-    uint64_t prio;
+    uint8_t prio;
     int client_fd;
 };
 struct Node {
