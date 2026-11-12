@@ -243,59 +243,66 @@ int checkRequestSize(int client_fd, uint8_t *req_buf){
 void requestScheduler(void *arg)
 {
     struct request *newrequest = (struct request *)arg;
+
     struct Node *newNode = malloc(sizeof(struct Node));
-    newNode->value = queueFunc(newrequest->interval, newrequest->prio);
+    if (newNode == NULL)
+        return;
+
+    newNode->value = queueFunc(newrequest->interval,
+                               newrequest->prio);
     newNode->data = *newrequest;
+
     if (*headPointer == NULL)
     {
-       *headPointer = newNode;
-        newNode->next=NULL;
-        newNode->prev=NULL;
+        *headPointer = newNode;
+        newNode->next = newNode;
+        newNode->prev = newNode;
+        return;
     }
-    else
+
+    struct Node *current = *headPointer;
+
+    // Find the first node with a smaller value
+    while (current->value >= newNode->value)
     {
-        if ((*headPointer)->next==NULL || (*headPointer)->prev==NULL)
-        {
-            if ((*headPointer)->value > newNode->value)
-            {
-                (*headPointer)->next = newNode;
-                newNode->next = *headPointer;
-                newNode->prev=*headPointer;
-                (*headPointer)->next=newNode;
-                continue;
-            }
-            else
-            {
-                (*headPointer)->prev = newNode;
-                newNode->prev = *headPointer;
-                newNode->next = *headPointer;
-                (*headPointer)->next = newNode;
-                (*headPointer) = newNode;
-                continue;
-            }
-        }
-        if ((*headPointer)->value > newNode->value)
-        {
-            (*headPointer)->next->prev = newNode;
-            newNode->next = (*headPointer)->next;
-            newNode->prev=*headPointer;
-            (*headPointer)->next=newNode;
-        }
-        else
-        {
-            (*headPointer)->next = newNode;
-            newNode->prev = *headPointer;
-            newNode->next = (*headPointer)->next;
-            *headPointer = newNode; 
-        }
+        current = current->next;
+
+        if (current == *headPointer)
+            break;
+    }
+
+    // Insert newNode immediately before current
+    newNode->next = current;
+    newNode->prev = current->prev;
+
+    current->prev->next = newNode;
+    current->prev = newNode;
+
+    // Update head if the new node is the largest
+    if (newNode->value > (*headPointer)->value)
+    {
+        *headPointer = newNode;
     }
 }
 
-struct request getRequest()
+struct request getRequest(void)
 {
-    struct request temp = *headPointer;
-    (*headPointer) -> prev -> next = (*headPointer) -> next;
-    (*headPointer) -> next -> prev = (*headPointer) -> prev;
-    (*headPointer) = (*headPointer) -> prev;
+    struct Node *oldHead = *headPointer;
+    struct request temp = oldHead->data;
+
+    if (oldHead->next == oldHead)
+    {
+        *headPointer = NULL;
+    }
+    else
+    {
+        oldHead->prev->next = oldHead->next;
+        oldHead->next->prev = oldHead->prev;
+
+        *headPointer = oldHead->next;
+    }
+
+    free(oldHead);
+
     return temp;
 }
