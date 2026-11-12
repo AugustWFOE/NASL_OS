@@ -156,7 +156,6 @@ int main(int argc, char *argv[])
         newrequest->start = be64toh(start_net);
         newrequest->end = be64toh(end_net);
         newrequest->client_fd = client_fd;
-        newrequest->interval = (newrequest->end - newrequest->start);
         newrequest->prio = priority;
         memcpy(
             newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
@@ -217,10 +216,9 @@ void *adventurer(void *arg) {
         printf("Quest accepted!\n");
         
         printf(
-            "Searching from %llu to %llu with interval %llu\n",
+            "Searching from %llu to %llu\n",
             (unsigned long long)quest->start,
             (unsigned long long)quest->end,
-            (unsigned long long)quest->interval
         );
     
         uint64_t answer = loneshaSolver(
