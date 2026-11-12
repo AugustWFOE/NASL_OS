@@ -67,11 +67,13 @@ int main(int argc, char *argv[])
         printf("Please provide port number");
         return 1;
     };
-    if (sem_init(&thread_slots, 0, MAX_THREADS) == -1)
-    {
-        perror("sem_init");
-        return 1;
-    }
+
+
+    // if (sem_init(&thread_slots, 0, MAX_THREADS) == -1)
+    // {
+    //     perror("sem_init");
+    //     return 1;
+    // }
 
     uint16_t port_number = (uint16_t)atoi(argv[1]); // Perhaps this should be validated
 
@@ -110,7 +112,7 @@ int main(int argc, char *argv[])
         pthread_create(&party[i], NULL, adventurer, NULL);
     } //Should probably handle errors
 
-    printf("Party (workers) created!")
+    printf("Party (workers) created!");
     
 
     while (1)
@@ -203,7 +205,7 @@ void *adventurer(void *arg) {
 
         pthread_mutex_lock(&quest_mutex);
 
-        while(headPointer == NULL){
+        while(isQueueEmpt()){
             pthread_cond_wait(&quest_available, &quest_mutex);
         }
 
@@ -235,7 +237,7 @@ void *adventurer(void *arg) {
     while (total_sent < PACKET_RESPONSE_SIZE)
     {
         ssize_t bytes = send(
-            newrequest->client_fd,
+            quest->client_fd,
             buf + total_sent,
             PACKET_RESPONSE_SIZE - total_sent,
             MSG_NOSIGNAL
@@ -395,3 +397,12 @@ struct request *getRequest(void)
     return NULL;
 }
 
+
+int isQueueEmpty(void){
+    for (int p = 0; p < 16; p++){
+        if(queue[p].head != NULL) {
+            return 0;
+        }
+    }
+    return 1;
+}
