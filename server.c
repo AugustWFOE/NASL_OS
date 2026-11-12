@@ -284,7 +284,7 @@ void requestScheduler(void *arg)
 
     if (headPointer == NULL)
     {
-        *headPointer = newNode;
+        headPointer = newNode;
         newNode->next = newNode;
         newNode->prev = newNode;
         return;
@@ -297,7 +297,7 @@ void requestScheduler(void *arg)
     {
         current = current->next;
 
-        if (current == *headPointer)
+        if (current == headPointer)
             break;
     }
 
