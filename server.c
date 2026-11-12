@@ -316,6 +316,9 @@ int checkRequestSize(int client_fd, uint8_t *req_buf){
 }
 
 uint64_t queueFunc(uint64_t interval, uint8_t priority){
+    if (interval < 500000){
+        priority = priority + 2;
+    }
     return priority;
 }
 
@@ -346,10 +349,13 @@ uint64_t queueFunc(uint64_t interval, uint8_t priority){
 
 int requestScheduler(struct request *req)
 {
-    uint8_t p = req->prio;
+    uint8_t p = queueFunc(req -> interval, req -> prio);
+    
 
-    if (p >= 16)
-        return -1;
+    if (p >= 16){
+        p = 15;
+    }
+        
 
     struct Node *node = malloc(sizeof(struct Node));
     if (node == NULL)
