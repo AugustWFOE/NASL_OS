@@ -315,21 +315,24 @@ void requestScheduler(void *arg)
     }
 }
 
-struct request getRequest(void)
+struct request *getRequest(void)
 {
-    struct Node *oldHead = *headPointer;
-    struct request temp = oldHead->data;
+    if (headPointer == NULL)
+        return NULL;
+
+    struct Node *oldHead = headPointer;
+    struct request *temp = oldHead->data;
 
     if (oldHead->next == oldHead)
     {
-        *headPointer = NULL;
+        headPointer = NULL;
     }
     else
     {
         oldHead->prev->next = oldHead->next;
         oldHead->next->prev = oldHead->prev;
 
-        *headPointer = oldHead->next;
+        headPointer = oldHead->next;
     }
 
     free(oldHead);
