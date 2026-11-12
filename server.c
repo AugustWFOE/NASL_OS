@@ -163,10 +163,6 @@ int main(int argc, char *argv[])
 
 void *answeringMachine(void *arg)
 {
-    printf("[fd=%d] Searching from %llu to %llu\n",
-       newrequest->client_fd,
-       (unsigned long long)newrequest->start,
-       (unsigned long long)newrequest->end);
     printf("Worker thread started!\n");
     struct request *newrequest = (struct request *)arg;
     printf(
@@ -174,6 +170,10 @@ void *answeringMachine(void *arg)
         (unsigned long long)newrequest->start,
         (unsigned long long)newrequest->end
     );
+    printf("[fd=%d] Searching from %llu to %llu\n",
+       newrequest->client_fd,
+       (unsigned long long)newrequest->start,
+       (unsigned long long)newrequest->end);
     uint64_t answer = loneshaSolver(
         newrequest->start,
         newrequest->end,
