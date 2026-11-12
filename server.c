@@ -218,7 +218,7 @@ void *adventurer(void *arg) {
         printf(
             "Searching from %llu to %llu\n",
             (unsigned long long)quest->start,
-            (unsigned long long)quest->end,
+            (unsigned long long)quest->end
         );
     
         uint64_t answer = loneshaSolver(
