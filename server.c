@@ -22,8 +22,6 @@ void *answeringMachine(void *client);
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
 int checkRequestSize(int client_fd, uint8_t *req_buf);
 uint64_t queueFunc(uint64_t interval, uint8_t priority);
-void requestScheduler(void *arg);
-struct request getRequest(void);
 
 struct request {
     uint64_t start;
@@ -39,7 +37,10 @@ struct Node {
     struct Node* next;
     struct Node* prev;
 };
-struct request* headPointer;
+struct Node *headPointer = NULL;
+
+void requestScheduler(void *arg);
+struct request *getRequest(void);
 
 #define MAX_THREADS 2
 
@@ -130,7 +131,7 @@ int main(int argc, char *argv[])
         newrequest->start = be64toh(start_net);
         newrequest->end = be64toh(end_net);
         newrequest->client_fd = client_fd;
-        newrequest->interval = (newrequest->end - newrequest->start)
+        newrequest->interval = (newrequest->end - newrequest->start);
         newrequest->prio = priority;
         memcpy(
             newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
@@ -141,7 +142,7 @@ int main(int argc, char *argv[])
         
         sem_wait(&thread_slots);
 
-        if (pthread_create(&thread, NULL, answeringMachine, getRequest()) != 0)
+        if (pthread_create(&thread, NULL, answeringMachine, getRequest()))
         {
             perror("pthread_create");
 
@@ -279,9 +280,9 @@ void requestScheduler(void *arg)
 
     newNode->value = queueFunc(newrequest->interval,
                                newrequest->prio);
-    newNode->data = *newrequest;
+    newNode->data = newrequest;
 
-    if (*headPointer == NULL)
+    if (headPointer == NULL)
     {
         *headPointer = newNode;
         newNode->next = newNode;
