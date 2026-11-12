@@ -36,14 +36,18 @@ struct request {
     int client_fd;
 };
 struct Node {
-    struct request* data;
-    uint64_t value;
-    struct Node* next;
-    struct Node* prev;
+    struct request *data;
+    struct Node *next;
 };
-struct Node *headPointer = NULL;
 
-void requestScheduler(void *arg);
+struct PriorityQueue {
+    struct Node *head;
+    struct Node *tail;
+};
+
+struct PriorityQueue queues[16] = {0};
+
+int requestScheduler(struct request *req);
 struct request *getRequest(void);
 
 #define MAX_THREADS 2
@@ -295,72 +299,56 @@ uint64_t queueFunc(uint64_t interval, uint8_t priority){
 //     return (uint64_t)(inverse_range * (double)priority);
 // }
 
-void requestScheduler(void *arg)
+int requestScheduler(struct request *req)
 {
-    struct request *newrequest = (struct request *)arg;
+    uint8_t p = req->prio;
 
-    struct Node *newNode = malloc(sizeof(struct Node));
-    if (newNode == NULL)
-        return;
+    if (p >= 16)
+        return -1;
 
-    newNode->value = queueFunc(newrequest->interval,
-                               newrequest->prio);
-    newNode->data = newrequest;
+    struct Node *node = malloc(sizeof(struct Node));
+    if (node == NULL)
+        return -1;
 
-    if (headPointer == NULL)
+    node->data = req;
+    node->next = NULL;
+
+    struct PriorityQueue *q = &queues[p];
+
+    if (q->tail == NULL)
     {
-        headPointer = newNode;
-        newNode->next = newNode;
-        newNode->prev = newNode;
-        return;
+        q->head = node;
+        q->tail = node;
+    }
+    else
+    {
+        q->tail->next = node;
+        q->tail = node;
     }
 
-    struct Node *current = headPointer;
-
-    // Find the first node with a smaller value
-    while (current->value >= newNode->value)
-    {
-        current = current->next;
-
-        if (current == headPointer)
-            break;
-    }
-
-    // Insert immediately before current
-    newNode->next = current;
-    newNode->prev = current->prev;
-
-    current->prev->next = newNode;
-    current->prev = newNode;
-
-    // Update head if the new node is the largest
-    if (newNode->value > headPointer->value)
-    {
-        headPointer = newNode;
-    }
+    return 0;
 }
 
 struct request *getRequest(void)
 {
-    if (headPointer == NULL)
-        return NULL;
-
-    struct Node *oldHead = headPointer;
-    struct request *temp = oldHead->data;
-
-    if (oldHead->next == oldHead)
+    for (int p = 15; p >= 0; p--)
     {
-        headPointer = NULL;
+        struct PriorityQueue *q = &queues[p];
+
+        if (q->head == NULL)
+            continue;
+
+        struct Node *node = q->head;
+        struct request *req = node->data;
+
+        q->head = node->next;
+
+        if (q->head == NULL)
+            q->tail = NULL;
+
+        free(node);
+        return req;
     }
-    else
-    {
-        oldHead->prev->next = oldHead->next;
-        oldHead->next->prev = oldHead->prev;
 
-        headPointer = oldHead->next;
-    }
-
-    free(oldHead);
-
-    return temp;
+    return NULL;
 }
