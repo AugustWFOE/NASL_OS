@@ -319,6 +319,9 @@ uint64_t queueFunc(uint64_t interval, uint8_t priority){
     if (interval < 500000){
         priority = priority + 2;
     }
+    else if (interval < 1000000){
+        priority = priority + 1;
+    }
     return priority;
 }
 
