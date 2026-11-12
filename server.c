@@ -15,13 +15,13 @@
 #include <endian.h>
 #include <semaphore.h>
 
-sem_t thread_slots;
+//sem_t thread_slots;
 
-void *answeringMachine(void *client);
+void *adventurer(void *client); //answeringMachine
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
 int checkRequestSize(int client_fd, uint8_t *req_buf);
 void requestScheduler(void *arg);
-struct request getRequest(void);
+struct request *getRequest(void);
 
 struct request {
     uint64_t start;
@@ -37,12 +37,22 @@ struct Node {
     struct Node* next;
     struct Node* prev;
 };
-struct request* headPointer;
+
+
+struct Node *headPointer = NULL;
 
 #define MAX_THREADS 2
+pthread_t party[MAX_THREADS]; //(workers)
+
+pthread_mutex_t quest_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t quest_available = PTHREAD_COND_INITIALIZER;
+
+//pthread_mutex_t answer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char *argv[])
 {   
+
+
     if (argc < 2)
     {
         printf("Please provide port number");
@@ -85,6 +95,14 @@ int main(int argc, char *argv[])
     }
 
     printf("Server listening on port %u\n", port_number);
+
+
+    for (int i = 0; i < MAX_THREADS; i++){
+        pthread_create(&party[i], NULL, adventurer, NULL);
+    } //Should probably handle errors
+
+    printf("Party (workers) created!")
+    
 
     while (1)
     {
@@ -134,63 +152,90 @@ int main(int argc, char *argv[])
             newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
         
         //Priotime?
+        pthread_mutex_lock(&quest_mutex);
+
         requestScheduler(newrequest);
-        //
+
+        pthread_cond_signal(&quest_available);
+
+        pthread_mutex_unlock(&quest_mutex);
         
-        sem_wait(&thread_slots);
 
-        if (pthread_create(&thread, NULL, answeringMachine, getRequest()) != 0)
-        {
-            perror("pthread_create");
+        
+        
+        //Right now creating threads at the beginning
 
-            sem_post(&thread_slots);
+        // sem_wait(&thread_slots);
 
-            close(client_fd);
-            free(newrequest);
-        }
-        else
-        {
-            pthread_detach(thread);
-        }
+        // if (pthread_create(&thread, NULL, adventurer, getRequest()) != 0)
+        // {
+        //     perror("pthread_create");
+
+        //     sem_post(&thread_slots);
+
+        //     close(client_fd);
+        //     free(newrequest);
+        // }
+        // else
+        // {
+        //     pthread_detach(thread);
+        // }
     }
 
     close(server_fd);
     return 0;
 }
 
-void *answeringMachine(void *arg)
-{
-    printf("Worker thread started!\n");
-    struct request *newrequest = (struct request *)arg;
-    printf(
-        "Searching from %llu to %llu\n",
-        (unsigned long long)newrequest->start,
-        (unsigned long long)newrequest->end
-    );
-    uint64_t answer = loneshaSolver(
-        newrequest->start,
-        newrequest->end,
-        newrequest->hash
-    );
+void *adventurer(void *arg) {
 
-    uint64_t answer_net = htobe64(answer);
+    (void)arg;
 
-    ssize_t bytes = send(
-        newrequest->client_fd,
-        &answer_net,
-        PACKET_RESPONSE_SIZE,
-        MSG_NOSIGNAL
-    );
+    while(1) {
 
-    printf("[server] %llu\n",
-           (unsigned long long)answer);
+        pthread_mutex_lock(&quest_mutex);
 
-    close(newrequest->client_fd);
+        while(headPointer == NULL){
+            pthread_cond_wait(&quest_available, &quest_mutex);
+        }
 
-    free(newrequest);
 
-    sem_post(&thread_slots);
+    
+        struct request *quest = getRequest();
 
+        pthread_mutex_unlock(&quest_mutex);
+
+        printf("Quest accepted!\n");
+        
+        printf(
+            "Searching from %llu to %llu\n",
+            (unsigned long long)quest->start,
+            (unsigned long long)quest->end
+        );
+    
+        uint64_t answer = loneshaSolver(
+            quest->start,
+            quest->end,
+            quest->hash
+        );
+
+        uint64_t answer_net = htobe64(answer);
+
+        ssize_t bytes = send(
+            quest->client_fd,
+            &answer_net,
+            PACKET_RESPONSE_SIZE,
+            MSG_NOSIGNAL
+        );
+
+        printf("[server] %llu\n",
+            (unsigned long long)answer);
+
+        close(quest->client_fd);
+
+        free(quest);
+
+    } 
+           
     return NULL;
 }
 
@@ -250,24 +295,25 @@ void requestScheduler(void *arg)
 
     newNode->value = queueFunc(newrequest->interval,
                                newrequest->prio);
-    newNode->data = *newrequest;
+    newNode->data = newrequest;
 
-    if (*headPointer == NULL)
+
+    if (headPointer == NULL)
     {
-        *headPointer = newNode;
+        headPointer = newNode;
         newNode->next = newNode;
         newNode->prev = newNode;
         return;
     }
 
-    struct Node *current = *headPointer;
+    struct Node *current = headPointer;
 
     // Find the first node with a smaller value
     while (current->value >= newNode->value)
     {
         current = current->next;
 
-        if (current == *headPointer)
+        if (current == headPointer)
             break;
     }
 
@@ -279,30 +325,31 @@ void requestScheduler(void *arg)
     current->prev = newNode;
 
     // Update head if the new node is the largest
-    if (newNode->value > (*headPointer)->value)
+    if (newNode->value > (headPointer)->value)
     {
-        *headPointer = newNode;
+        headPointer = newNode;
     }
 }
 
-struct request getRequest(void)
+struct request *getRequest(void)
 {
-    struct Node *oldHead = *headPointer;
-    struct request temp = oldHead->data;
+    struct Node *oldHead = headPointer;
+    struct request *temp = oldHead->data;
 
     if (oldHead->next == oldHead)
     {
-        *headPointer = NULL;
+        headPointer = NULL;
     }
     else
     {
         oldHead->prev->next = oldHead->next;
         oldHead->next->prev = oldHead->prev;
 
-        *headPointer = oldHead->next;
+        headPointer = oldHead->next;
     }
 
     free(oldHead);
 
     return temp;
 }
+
