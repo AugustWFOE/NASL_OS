@@ -20,7 +20,8 @@ sem_t thread_slots;
 void *answeringMachine(void *client);
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
 int checkRequestSize(int client_fd, uint8_t *req_buf);
-
+void requestScheduler(uint64_t interval, uint64_t prio);
+struct request getRequest();
 
 struct request {
     uint64_t start;
@@ -133,12 +134,12 @@ int main(int argc, char *argv[])
             newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
         
         //Priotime?
-
+        requestScheduler(newrequest);
         //
         
         sem_wait(&thread_slots);
 
-        if (pthread_create(&thread, NULL, answeringMachine, newrequest) != 0)
+        if (pthread_create(&thread, NULL, answeringMachine, getRequest()) != 0)
         {
             perror("pthread_create");
 
@@ -239,7 +240,7 @@ int checkRequestSize(int client_fd, uint8_t *req_buf){
         return 1;
 }
 
-uint64_t requestScheduler(void *arg)
+void requestScheduler(void *arg)
 {
     struct request *newrequest = (struct request *)arg;
     struct Node *newNode = malloc(sizeof(struct Node));
@@ -288,4 +289,13 @@ uint64_t requestScheduler(void *arg)
             *headPointer = newNode; 
         }
     }
+}
+
+struct request getRequest()
+{
+    struct request temp = *headPointer;
+    (*headPointer) -> prev -> next = (*headPointer) -> next;
+    (*headPointer) -> next -> prev = (*headPointer) -> prev;
+    (*headPointer) = (*headPointer) -> prev;
+    return temp;
 }
