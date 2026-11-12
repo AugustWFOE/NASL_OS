@@ -400,7 +400,7 @@ struct request *getRequest(void)
 
 int isQueueEmpty(void){
     for (int p = 0; p < 16; p++){
-        if(queue[p].head != NULL) {
+        if(queues[p].head != NULL) {
             return 0;
         }
     }
