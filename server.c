@@ -49,6 +49,7 @@ struct PriorityQueue queues[16] = {0};
 
 int requestScheduler(struct request *req);
 struct request *getRequest(void);
+int isQueueEmpty(void);
 
 #define MAX_THREADS 2
 pthread_t party[MAX_THREADS]; //(workers)
