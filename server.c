@@ -26,9 +26,17 @@ struct request {
     uint64_t start;
     uint64_t end;
     uint8_t hash[32];
-    uint64_t waste;
+    uint64_t interval;
+    uint64_t prio;
     int client_fd;
 };
+struct Node {
+    struct request* data;
+    uint64_t value;
+    struct Node* next;
+    struct Node* prev;
+};
+struct request* headPointer;
 
 #define MAX_THREADS 2
 
@@ -119,12 +127,15 @@ int main(int argc, char *argv[])
         newrequest->start = be64toh(start_net);
         newrequest->end = be64toh(end_net);
         newrequest->client_fd = client_fd;
-        newrequest->waste = (newrequest->end - newrequest->start) / priority;
+        newrequest->interval = (newrequest->end - newrequest->start)
+        newrequest->prio = priority;
         memcpy(
             newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
         
+        //Priotime?
 
         //
+        
         sem_wait(&thread_slots);
 
         if (pthread_create(&thread, NULL, answeringMachine, newrequest) != 0)
@@ -182,6 +193,8 @@ void *answeringMachine(void *arg)
     return NULL;
 }
 
+uint_64_t queueFunc(uint_64_t interval, )
+
 uint64_t loneshaSolver(uint64_t start, uint64_t end,
                        const uint8_t *target_hash)
 {
@@ -224,4 +237,55 @@ int checkRequestSize(int client_fd, uint8_t *req_buf){
         }
 
         return 1;
+}
+
+uint64_t requestScheduler(void *arg)
+{
+    struct request *newrequest = (struct request *)arg;
+    struct Node *newNode = malloc(sizeof(struct Node));
+    newNode->value = queueFunc(newrequest->interval, newrequest->prio);
+    newNode->data = *newrequest;
+    if (*headPointer == NULL)
+    {
+       *headPointer = newNode;
+        newNode->next=NULL;
+        newNode->prev=NULL;
+    }
+    else
+    {
+        if ((*headPointer)->next==NULL || (*headPointer)->prev==NULL)
+        {
+            if ((*headPointer)->value > newNode->value)
+            {
+                (*headPointer)->next = newNode;
+                newNode->next = *headPointer;
+                newNode->prev=*headPointer;
+                (*headPointer)->next=newNode;
+                continue;
+            }
+            else
+            {
+                (*headPointer)->prev = newNode;
+                newNode->prev = *headPointer;
+                newNode->next = *headPointer;
+                (*headPointer)->next = newNode;
+                (*headPointer) = newNode;
+                continue;
+            }
+        }
+        if ((*headPointer)->value > newNode->value)
+        {
+            (*headPointer)->next->prev = newNode;
+            newNode->next = (*headPointer)->next;
+            newNode->prev=*headPointer;
+            (*headPointer)->next=newNode;
+        }
+        else
+        {
+            (*headPointer)->next = newNode;
+            newNode->prev = *headPointer;
+            newNode->next = (*headPointer)->next;
+            *headPointer = newNode; 
+        }
+    }
 }
