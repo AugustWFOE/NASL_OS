@@ -163,6 +163,7 @@ int main(int argc, char *argv[])
                 pthread_detach(thread);
             }
         }
+    }
 
     close(server_fd);
     return 0;
