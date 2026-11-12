@@ -25,13 +25,11 @@
 void *adventurer(void *client); //answeringMachine
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
 int checkRequestSize(int client_fd, uint8_t *req_buf);
-uint64_t queueFunc(uint64_t interval, uint8_t priority);
 
 struct request {
     uint64_t start;
     uint64_t end;
     uint8_t hash[32];
-    uint64_t interval;
     uint8_t prio;
     int client_fd;
 };
@@ -316,15 +314,15 @@ int checkRequestSize(int client_fd, uint8_t *req_buf){
         return 1;
 }
 
-uint64_t queueFunc(uint64_t interval, uint8_t priority){
-    if (interval < 500000){
-        priority = priority + 2;
-    }
-    else if (interval < 1000000){
-        priority = priority + 1;
-    }
-    return priority;
-}
+// uint64_t queueFunc(uint64_t interval, uint8_t priority){
+//     if (interval < 500000){
+//         priority = priority + 2;
+//     }
+//     else if (interval < 1000000){
+//         priority = priority + 1;
+//     }
+//     return priority;
+// }
 
 // uint64_t queueFunc(uint64_t interval, uint8_t priority){
 //     return interval * priority * priority;
@@ -353,18 +351,11 @@ uint64_t queueFunc(uint64_t interval, uint8_t priority){
 
 int requestScheduler(struct request *req)
 {
-    uint8_t p = queueFunc(req -> interval, req -> prio);
-    
+    uint8_t p = req -> prio;
 
     if (p >= 16){
-        p = 15;
+        return -1;
     }
-        
-    // uint8_t p = req -> prio;
-
-    // if (p >= 16){
-    //     return -1;
-    // }
     struct Node *node = malloc(sizeof(struct Node));
     if (node == NULL)
         return -1;
