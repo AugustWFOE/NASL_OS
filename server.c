@@ -349,18 +349,18 @@ uint64_t queueFunc(uint64_t interval, uint8_t priority){
 
 int requestScheduler(struct request *req)
 {
-    // uint8_t p = queueFunc(req -> interval, req -> prio);
+    uint8_t p = queueFunc(req -> interval, req -> prio);
     
 
-    // if (p >= 16){
-    //     p = 15;
-    // }
-        
-    uint8_t p = req -> prio;
-
     if (p >= 16){
-        return -1;
+        p = 15;
     }
+        
+    // uint8_t p = req -> prio;
+
+    // if (p >= 16){
+    //     return -1;
+    // }
     struct Node *node = malloc(sizeof(struct Node));
     if (node == NULL)
         return -1;
