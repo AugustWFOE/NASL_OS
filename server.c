@@ -206,7 +206,7 @@ void *adventurer(void *arg) {
 
         pthread_mutex_lock(&quest_mutex);
 
-        while(isQueueEmpt()){
+        while(isQueueEmpty()){
             pthread_cond_wait(&quest_available, &quest_mutex);
         }
 
