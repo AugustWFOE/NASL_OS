@@ -290,7 +290,7 @@ void requestScheduler(void *arg)
         return;
     }
 
-    struct Node *current = *headPointer;
+    struct Node *current = headPointer;
 
     // Find the first node with a smaller value
     while (current->value >= newNode->value)
@@ -301,7 +301,7 @@ void requestScheduler(void *arg)
             break;
     }
 
-    // Insert newNode immediately before current
+    // Insert immediately before current
     newNode->next = current;
     newNode->prev = current->prev;
 
@@ -309,9 +309,9 @@ void requestScheduler(void *arg)
     current->prev = newNode;
 
     // Update head if the new node is the largest
-    if (newNode->value > (*headPointer)->value)
+    if (newNode->value > headPointer->value)
     {
-        *headPointer = newNode;
+        headPointer = newNode;
     }
 }
 
