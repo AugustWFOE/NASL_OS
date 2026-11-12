@@ -140,24 +140,29 @@ int main(int argc, char *argv[])
         
         //Priotime?
         requestScheduler(newrequest);
-        //
-        
-        sem_wait(&thread_slots);
 
-        if (pthread_create(&thread, NULL, answeringMachine, getRequest()))
+        if (sem_trywait(&thread_slots) == 0)
         {
-            perror("pthread_create");
+            struct request *nextRequest = getRequest();
 
-            sem_post(&thread_slots);
+            int err = pthread_create(
+                &thread,
+                NULL,
+                answeringMachine,
+                nextRequest
+            );
 
-            close(client_fd);
-            free(newrequest);
+            if (err != 0)
+            {
+                fprintf(stderr, "pthread_create: %s\n", strerror(err));
+                // Handle nextRequest rather than losing it
+                sem_post(&thread_slots);
+            }
+            else
+            {
+                pthread_detach(thread);
+            }
         }
-        else
-        {
-            pthread_detach(thread);
-        }
-    }
 
     close(server_fd);
     return 0;
