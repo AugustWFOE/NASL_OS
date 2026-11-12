@@ -18,6 +18,8 @@
 
 #include <errno.h>
 
+
+
 sem_t thread_slots;
 
 void *answeringMachine(void *client);
