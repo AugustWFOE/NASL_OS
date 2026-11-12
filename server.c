@@ -51,7 +51,7 @@ int requestScheduler(struct request *req);
 struct request *getRequest(void);
 int isQueueEmpty(void);
 
-#define MAX_THREADS 2
+#define MAX_THREADS 3
 pthread_t party[MAX_THREADS]; //(workers)
 
 pthread_mutex_t quest_mutex = PTHREAD_MUTEX_INITIALIZER;
