@@ -14,14 +14,18 @@
 #include <string.h>
 #include <endian.h>
 #include <semaphore.h>
+#include <math.h>
+
+#include <errno.h>
+
+
 
 //sem_t thread_slots;
 
 void *adventurer(void *client); //answeringMachine
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
 int checkRequestSize(int client_fd, uint8_t *req_buf);
-void requestScheduler(void *arg);
-struct request *getRequest(void);
+uint64_t queueFunc(uint64_t interval, uint8_t priority);
 
 struct request {
     uint64_t start;
@@ -32,14 +36,19 @@ struct request {
     int client_fd;
 };
 struct Node {
-    struct request* data;
-    uint64_t value;
-    struct Node* next;
-    struct Node* prev;
+    struct request *data;
+    struct Node *next;
 };
 
+struct PriorityQueue {
+    struct Node *head;
+    struct Node *tail;
+};
 
-struct Node *headPointer = NULL;
+struct PriorityQueue queues[16] = {0};
+
+int requestScheduler(struct request *req);
+struct request *getRequest(void);
 
 #define MAX_THREADS 2
 pthread_t party[MAX_THREADS]; //(workers)
@@ -146,7 +155,7 @@ int main(int argc, char *argv[])
         newrequest->start = be64toh(start_net);
         newrequest->end = be64toh(end_net);
         newrequest->client_fd = client_fd;
-        newrequest->interval = (newrequest->end - newrequest->start)
+        newrequest->interval = (newrequest->end - newrequest->start);
         newrequest->prio = priority;
         memcpy(
             newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
@@ -218,17 +227,37 @@ void *adventurer(void *arg) {
             quest->hash
         );
 
-        uint64_t answer_net = htobe64(answer);
+    uint64_t answer_net = htobe64(answer);
+    
+    size_t total_sent = 0;
+    const uint8_t *buf = (const uint8_t *)&answer_net;
 
+    while (total_sent < PACKET_RESPONSE_SIZE)
+    {
         ssize_t bytes = send(
-            quest->client_fd,
-            &answer_net,
-            PACKET_RESPONSE_SIZE,
+            newrequest->client_fd,
+            buf + total_sent,
+            PACKET_RESPONSE_SIZE - total_sent,
             MSG_NOSIGNAL
         );
 
-        printf("[server] %llu\n",
-            (unsigned long long)answer);
+        if (bytes < 0)
+        {
+            if (errno == EINTR)
+                continue;
+
+            perror("send");
+            break;
+        }
+
+        if (bytes == 0)
+        {
+            fprintf(stderr, "send returned 0\n");
+            break;
+        }
+
+        total_sent += (size_t)bytes;
+    }
 
         close(quest->client_fd);
 
@@ -238,8 +267,6 @@ void *adventurer(void *arg) {
            
     return NULL;
 }
-
-uint_64_t queueFunc(uint_64_t interval, )
 
 uint64_t loneshaSolver(uint64_t start, uint64_t end,
                        const uint8_t *target_hash)
@@ -285,71 +312,86 @@ int checkRequestSize(int client_fd, uint8_t *req_buf){
         return 1;
 }
 
-void requestScheduler(void *arg)
+uint64_t queueFunc(uint64_t interval, uint8_t priority){
+    return priority;
+}
+
+// uint64_t queueFunc(uint64_t interval, uint8_t priority){
+//     return interval * priority * priority;
+// }
+
+// uint64_t queueFunc(uint64_t interval, uint8_t priority){
+//     return (uint64_t)sqrt((double)interval) * priority;
+// }
+
+// uint64_t queueFunc(uint64_t interval, uint8_t priority){
+//     if (interval <= 1) return priority;
+//     return (uint64_t)log2((double)interval) * priority;
+// }
+
+// uint64_t queueFunc(uint64_t interval, uint8_t priority){
+//     if (interval <= 1) return priority;
+//     return (uint64_t)log2(log2((double)interval + 2.0) +1.0) * priority;
+// }
+
+// uint64_t queueFunc(uint64_t interval, uint8_t priority){
+//     if (interval <= 1) return priority;
+
+//     double inverse_range = 1000000.0 / log2((double)interval);
+//     return (uint64_t)(inverse_range * (double)priority);
+// }
+
+int requestScheduler(struct request *req)
 {
-    struct request *newrequest = (struct request *)arg;
+    uint8_t p = req->prio;
 
-    struct Node *newNode = malloc(sizeof(struct Node));
-    if (newNode == NULL)
-        return;
+    if (p >= 16)
+        return -1;
 
-    newNode->value = queueFunc(newrequest->interval,
-                               newrequest->prio);
-    newNode->data = newrequest;
+    struct Node *node = malloc(sizeof(struct Node));
+    if (node == NULL)
+        return -1;
 
+    node->data = req;
+    node->next = NULL;
 
-    if (headPointer == NULL)
+    struct PriorityQueue *q = &queues[p];
+
+    if (q->tail == NULL)
     {
-        headPointer = newNode;
-        newNode->next = newNode;
-        newNode->prev = newNode;
-        return;
+        q->head = node;
+        q->tail = node;
+    }
+    else
+    {
+        q->tail->next = node;
+        q->tail = node;
     }
 
-    struct Node *current = headPointer;
-
-    // Find the first node with a smaller value
-    while (current->value >= newNode->value)
-    {
-        current = current->next;
-
-        if (current == headPointer)
-            break;
-    }
-
-    // Insert newNode immediately before current
-    newNode->next = current;
-    newNode->prev = current->prev;
-
-    current->prev->next = newNode;
-    current->prev = newNode;
-
-    // Update head if the new node is the largest
-    if (newNode->value > (headPointer)->value)
-    {
-        headPointer = newNode;
-    }
+    return 0;
 }
 
 struct request *getRequest(void)
 {
-    struct Node *oldHead = headPointer;
-    struct request *temp = oldHead->data;
-
-    if (oldHead->next == oldHead)
+    for (int p = 15; p >= 0; p--)
     {
-        headPointer = NULL;
+        struct PriorityQueue *q = &queues[p];
+
+        if (q->head == NULL)
+            continue;
+
+        struct Node *node = q->head;
+        struct request *req = node->data;
+
+        q->head = node->next;
+
+        if (q->head == NULL)
+            q->tail = NULL;
+
+        free(node);
+        return req;
     }
-    else
-    {
-        oldHead->prev->next = oldHead->next;
-        oldHead->next->prev = oldHead->prev;
 
-        headPointer = oldHead->next;
-    }
-
-    free(oldHead);
-
-    return temp;
+    return NULL;
 }
 
