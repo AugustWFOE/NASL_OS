@@ -196,8 +196,6 @@ void *answeringMachine(void *arg)
     return NULL;
 }
 
-uint_64_t queueFunc(uint_64_t interval, )
-
 uint64_t loneshaSolver(uint64_t start, uint64_t end,
                        const uint8_t *target_hash)
 {
@@ -246,30 +244,30 @@ uint64_t queueFunc(uint64_t interval, uint8_t priority){
     return priority;
 }
 
-uint64_t queueFunc(uint64_t interval, uint8_t priority){
-    return interval * priority * priority;
-}
+// uint64_t queueFunc(uint64_t interval, uint8_t priority){
+//     return interval * priority * priority;
+// }
 
-uint64_t queueFunc(uint64_t interval, uint8_t priority){
-    return (uint64_t)sqrt((double)interval) * priority;
-}
+// uint64_t queueFunc(uint64_t interval, uint8_t priority){
+//     return (uint64_t)sqrt((double)interval) * priority;
+// }
 
-uint64_t queueFunc(uint64_t interval, uint8_t priority){
-    if (interval <= 1) return priority;
-    return (uint64_t)log2((double)interval) * priority;
-}
+// uint64_t queueFunc(uint64_t interval, uint8_t priority){
+//     if (interval <= 1) return priority;
+//     return (uint64_t)log2((double)interval) * priority;
+// }
 
-uint64_t queueFunc(uint64_t interval, uint8_t priority){
-    if (interval <= 1) return priority;
-    return (uint64_t)log2(log2((double)interval + 2.0) +1.0) * priority;
-}
+// uint64_t queueFunc(uint64_t interval, uint8_t priority){
+//     if (interval <= 1) return priority;
+//     return (uint64_t)log2(log2((double)interval + 2.0) +1.0) * priority;
+// }
 
-uint64_t queueFunc(uint64_t interval, uint8_t priority){
-    if (interval <= 1) return priority;
+// uint64_t queueFunc(uint64_t interval, uint8_t priority){
+//     if (interval <= 1) return priority;
 
-    double inverse_range = 1000000.0 / log2((double)interval);
-    return (uint64_t)(inverse_range * (double)priority);
-}
+//     double inverse_range = 1000000.0 / log2((double)interval);
+//     return (uint64_t)(inverse_range * (double)priority);
+// }
 
 void requestScheduler(void *arg)
 {
