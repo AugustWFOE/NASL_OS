@@ -163,6 +163,10 @@ int main(int argc, char *argv[])
 
 void *answeringMachine(void *arg)
 {
+    printf("[fd=%d] Searching from %llu to %llu\n",
+       newrequest->client_fd,
+       (unsigned long long)newrequest->start,
+       (unsigned long long)newrequest->end);
     printf("Worker thread started!\n");
     struct request *newrequest = (struct request *)arg;
     printf(
@@ -177,13 +181,16 @@ void *answeringMachine(void *arg)
     );
 
     uint64_t answer_net = htobe64(answer);
-
+    
     ssize_t bytes = send(
         newrequest->client_fd,
         &answer_net,
         PACKET_RESPONSE_SIZE,
         MSG_NOSIGNAL
     );
+    printf("[fd=%d] Answer: %llu\n",
+       newrequest->client_fd,
+       (unsigned long long)answer);
 
     printf("[server] %llu\n",
            (unsigned long long)answer);
