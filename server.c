@@ -22,6 +22,8 @@ void *answeringMachine(void *client);
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
 int checkRequestSize(int client_fd, uint8_t *req_buf);
 uint64_t queueFunc(uint64_t interval, uint8_t priority);
+void requestScheduler(void *arg);
+struct request getRequest(void);
 
 struct request {
     uint64_t start;
@@ -31,6 +33,13 @@ struct request {
     uint8_t prio;
     int client_fd;
 };
+struct Node {
+    struct request* data;
+    uint64_t value;
+    struct Node* next;
+    struct Node* prev;
+};
+struct request* headPointer;
 
 #define MAX_THREADS 2
 
@@ -121,15 +130,18 @@ int main(int argc, char *argv[])
         newrequest->start = be64toh(start_net);
         newrequest->end = be64toh(end_net);
         newrequest->client_fd = client_fd;
-        newrequest->waste = (newrequest->end - newrequest->start) / priority;
+        newrequest->interval = (newrequest->end - newrequest->start)
+        newrequest->prio = priority;
         memcpy(
             newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
         
-
+        //Priotime?
+        requestScheduler(newrequest);
         //
+        
         sem_wait(&thread_slots);
 
-        if (pthread_create(&thread, NULL, answeringMachine, newrequest) != 0)
+        if (pthread_create(&thread, NULL, answeringMachine, getRequest()) != 0)
         {
             perror("pthread_create");
 
@@ -183,6 +195,8 @@ void *answeringMachine(void *arg)
 
     return NULL;
 }
+
+uint_64_t queueFunc(uint_64_t interval, )
 
 uint64_t loneshaSolver(uint64_t start, uint64_t end,
                        const uint8_t *target_hash)
@@ -255,4 +269,71 @@ uint64_t queueFunc(uint64_t interval, uint8_t priority){
 
     double inverse_range = 1000000.0 / log2((double)interval);
     return (uint64_t)(inverse_range * (double)priority);
+}
+
+void requestScheduler(void *arg)
+{
+    struct request *newrequest = (struct request *)arg;
+
+    struct Node *newNode = malloc(sizeof(struct Node));
+    if (newNode == NULL)
+        return;
+
+    newNode->value = queueFunc(newrequest->interval,
+                               newrequest->prio);
+    newNode->data = *newrequest;
+
+    if (*headPointer == NULL)
+    {
+        *headPointer = newNode;
+        newNode->next = newNode;
+        newNode->prev = newNode;
+        return;
+    }
+
+    struct Node *current = *headPointer;
+
+    // Find the first node with a smaller value
+    while (current->value >= newNode->value)
+    {
+        current = current->next;
+
+        if (current == *headPointer)
+            break;
+    }
+
+    // Insert newNode immediately before current
+    newNode->next = current;
+    newNode->prev = current->prev;
+
+    current->prev->next = newNode;
+    current->prev = newNode;
+
+    // Update head if the new node is the largest
+    if (newNode->value > (*headPointer)->value)
+    {
+        *headPointer = newNode;
+    }
+}
+
+struct request getRequest(void)
+{
+    struct Node *oldHead = *headPointer;
+    struct request temp = oldHead->data;
+
+    if (oldHead->next == oldHead)
+    {
+        *headPointer = NULL;
+    }
+    else
+    {
+        oldHead->prev->next = oldHead->next;
+        oldHead->next->prev = oldHead->prev;
+
+        *headPointer = oldHead->next;
+    }
+
+    free(oldHead);
+
+    return temp;
 }
