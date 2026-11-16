@@ -1,7 +1,9 @@
 #include "hashtable.h"
 #include "lonesha256.h"
+#include "messages.h"
 #include <stdlib.h>
-
+#include <string.h>
+#include <endian.h>
 
 
 int create_hashtable(HashTable *table, size_t bucket_count){
@@ -24,8 +26,7 @@ int create_hashtable(HashTable *table, size_t bucket_count){
     return 0;
 }
 
-uint64_t *lookup(HashTable *table, uint8_t *hash){
-
+static uint64_t hash_function(HashTable *table, uint8_t *hash){
     //hash funktion
     uint64_t bucket_index = 0;
 
@@ -33,6 +34,13 @@ uint64_t *lookup(HashTable *table, uint8_t *hash){
     for(int i = 0; i<32; i++){
         bucket_index = ((bucket_index * 256) + hash[i]) % table->buckets_count;
     }
+
+    return bucket_index;
+}
+
+uint64_t *lookup(HashTable *table, uint8_t *hash){
+
+    uint64_t bucket_index = hash_function(table, hash);
 
     Node *nextNode = table->buckets[bucket_index].head;
 
@@ -65,6 +73,13 @@ int validate_output(uint8_t *hash, uint64_t answer){
 
 int insert(HashTable *table, uint8_t *hash, uint64_t answer){
     
+    //Should be used if we want to make sure that we can't get dublicates
+    //or we don't catch raceconditions.
+
+    // if(lookup(table, hash) != NULL){
+    //     return -1;
+    // }
+
     //Creates a new Node with the new answer values
     Node *new_input = malloc(sizeof(Node));
     if(new_input == NULL){
@@ -74,21 +89,15 @@ int insert(HashTable *table, uint8_t *hash, uint64_t answer){
     new_input->number = answer;
 
     //hash funktion
-    uint64_t bucket_index = 0;
-
-    //takes modulo of all the bytes in the hash
-    for(int i = 0; i<32; i++){
-        bucket_index = ((bucket_index * 256) + hash[i]) % table->buckets_count;
-    }
+    uint64_t bucket_index = hash_function(table, hash);
 
     //finding head of linklist and updates the head
     Node *nextNode = table->buckets[bucket_index].head;
     if(nextNode != NULL){
-        while (nextNode->next != NULL)
-        {
-            nextNode = nextNode->next;
-        }
-        nextNode->next = new_input;
+
+        new_input->next = table->buckets[bucket_index].head;
+        table->buckets[bucket_index].head = new_input;
+
     }else{
         table->buckets[bucket_index].head = new_input;
     }
