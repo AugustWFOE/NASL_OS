@@ -6,6 +6,26 @@
 #include <endian.h>
 
 
+/*
+create_hashtable(HashTable *table, size_t bucket_count)
+    -simply allocates memory to the hashtable and initialiser the correct values.
+     imagine its the constructor for the hashtable.
+
+hash_function(HashTable *table, uint8_t *hash)
+    -loops through the hash array and takes modulo for each index
+     and added the rest to the next index.
+
+*lookup(HashTable *table, uint8_t *hash)
+    -returns a address for the answer we are looking for or NULL if it doesn't exist.
+
+validate_output(uint8_t *hash, uint64_t answer)
+    -does the same as the server. Convertes the answer to little endian and
+     gets the hash from lonesha256, where we validates its the same.
+     
+insert(HashTable *table, uint8_t *hash, uint64_t answer)
+    -allocate memory for the new Node and addes it at the front of the link-list.
+*/
+
 int create_hashtable(HashTable *table, size_t bucket_count){
 
 
