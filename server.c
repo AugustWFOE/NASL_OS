@@ -20,23 +20,13 @@
 
 #include <errno.h>
 
-// sem_t thread_slots;
 
 void *adventurer(void *client); 
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
-int checkRequestSize(int client_fd, uint8_t *req_buf);
 
-struct request
-{
-    uint64_t start;
-    uint64_t end;
-    uint8_t hash[32];
-    uint8_t prio;
-    int client_fd;
-};
 struct QueueNode
 {
-    struct request *data;
+    uint8_t smallPackage[45];
     struct QueueNode *next;
 };
 
@@ -49,7 +39,7 @@ struct PriorityQueue
 struct PriorityQueue queues[16] = {0};
 
 int requestScheduler(struct request *req);
-struct request *getRequest(void);
+
 int isQueueEmpty(void);
 
 #define MAX_THREADS 4
@@ -83,87 +73,30 @@ int main(int argc, char *argv[])
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (server_fd == -1)
-    {
-        perror("socket");
-        return 1;
-    }
-
     struct sockaddr_in address;
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = htonl(INADDR_ANY);
     address.sin_port = htons(port_number);
 
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) == -1)
-    {
-        perror("bind");
-        close(server_fd);
-        return 1;
-    }
-
-    if (listen(server_fd, 10) == -1)
-    {
-        perror("listen");
-        close(server_fd);
-        return 1;
-    }
-
-    printf("Server listening on port %u\n", port_number);
 
     for (int i = 0; i < MAX_THREADS; i++)
     {
         pthread_create(&party[i], NULL, adventurer, NULL);
-    } // Should probably handle errors
-
-    printf("Party (workers) created!");
+    } 
 
     while (1)
     {
         int client_fd = accept(server_fd, NULL, NULL);
 
-        if (client_fd == -1)
-        {
-            perror("accept");
-            continue;
-        }
-
-        printf("Client connected!\n");
-
-        uint8_t req_buf[PACKET_REQUEST_SIZE];
-
-        if (checkRequestSize(client_fd, req_buf) != 1)
-        {
-            close(client_fd);
-            continue;
-        }
-        printf("Request successfully received!\n");
-
-        uint64_t start_net, end_net;
-        memcpy(&start_net, &req_buf[PACKET_REQUEST_START_OFFSET], sizeof(uint64_t));
-        memcpy(&end_net, &req_buf[PACKET_REQUEST_END_OFFSET], sizeof(uint64_t));
-
-        uint8_t priority = req_buf[PACKET_REQUEST_PRIO_OFFSET];
-
-        struct request *newrequest = malloc(sizeof(struct request));
-
-        if (newrequest == NULL)
-        {
-            perror("malloc");
-            close(client_fd);
-            continue;
-        }
-
-        newrequest->start = be64toh(start_net);
-        newrequest->end = be64toh(end_net);
-        newrequest->client_fd = client_fd;
-        newrequest->prio = priority;
-        memcpy(
-            newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
-
+        uint8_t smallPackage[45];
+        memcpy(&smallPackage, &req_buf[0], 40);
+        memcpy(&smallPackage[40], &client_fd,4);
+        memcpy(&smallPackage[44], &req_buf[PACKET_REQUEST_PRIO_OFFSET],1);
+        
         pthread_mutex_lock(&quest_mutex);
 
-        requestScheduler(newrequest);
+        requestScheduler(&smallPackage);
 
         pthread_cond_signal(&quest_available);
 
@@ -189,7 +122,8 @@ void *adventurer(void *arg)
             pthread_cond_wait(&quest_available, &quest_mutex);
         }
 
-        struct request *quest = getRequest();
+        uint8_t quest[44];
+        memcpy(&quest[44], getRequest(),44);
 
         pthread_mutex_unlock(&quest_mutex);
 
@@ -199,7 +133,7 @@ void *adventurer(void *arg)
         int found_answer = 0;
 
         pthread_mutex_lock(&database_mutex);
-        uint64_t *search = lookup(&database, quest->hash);
+        uint64_t *search = lookup(&database, *quest[32]);
         
 
         if (search != NULL && *search >= quest->start && *search <= quest->end)
@@ -211,15 +145,9 @@ void *adventurer(void *arg)
 
         if(found_answer == 0)
         {
-            printf(
-                "Searching from %llu to %llu\n",
-                (unsigned long long)quest->start,
-                (unsigned long long)quest->end);
-
             answer = loneshaSolver(
-                quest->start,
-                quest->end,
-                quest->hash);
+                &quest[44]
+            );
         }
 
         uint64_t answer_net = htobe64(answer);
@@ -261,8 +189,7 @@ void *adventurer(void *arg)
     return NULL;
 }
 
-uint64_t loneshaSolver(uint64_t start, uint64_t end,
-                       const uint8_t *target_hash)
+uint64_t loneshaSolver(const uint8_t target_hash[44])
 {
     uint8_t hash[32];
 
@@ -292,72 +219,9 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
     return 0;
 }
 
-int checkRequestSize(int client_fd, uint8_t *req_buf)
+int requestScheduler(uint8_t[] &smallPackage)
 {
-    ssize_t total_read = 0;
-    while (total_read < PACKET_REQUEST_SIZE)
-    {
-        ssize_t bytes = read(client_fd, req_buf + total_read, PACKET_REQUEST_SIZE - total_read);
-        if (bytes <= 0)
-        {
-            break;
-        }
-        total_read += bytes;
-    }
-
-    if (total_read < PACKET_REQUEST_SIZE)
-    {
-        return 0;
-    }
-
-    return 1;
-}
-
-// uint64_t queueFunc(uint64_t interval, uint8_t priority){
-//     if (interval < 500000){
-//         priority = priority + 2;
-//     }
-//     else if (interval < 1000000){
-//         priority = priority + 1;
-//     }
-//     return priority;
-// }
-
-// uint64_t queueFunc(uint64_t interval, uint8_t priority){
-//     return interval * priority * priority;
-// }
-
-// uint64_t queueFunc(uint64_t interval, uint8_t priority){
-//     return (uint64_t)sqrt((double)interval) * priority;
-// }
-
-// uint64_t queueFunc(uint64_t interval, uint8_t priority){
-//     if (interval <= 1) return priority;
-//     return (uint64_t)log2((double)interval) * priority;
-// }
-
-// uint64_t queueFunc(uint64_t interval, uint8_t priority){
-//     if (interval <= 1) return priority;
-//     return (uint64_t)log2(log2((double)interval + 2.0) +1.0) * priority;
-// }
-
-// uint64_t queueFunc(uint64_t interval, uint8_t priority){
-//     if (interval <= 1) return priority;
-
-//     double inverse_range = 1000000.0 / log2((double)interval);
-//     return (uint64_t)(inverse_range * (double)priority);
-// }
-
-int requestScheduler(struct request *req)
-{
-    uint8_t p = req -> prio - 1;
-
-    struct QueueNode *node = malloc(sizeof(struct QueueNode));
-    if (node == NULL)
-        return -1;
-
-    node->data = req;
-    node->next = NULL;
+    uint8_t p = *smallPackage[45];
 
     struct PriorityQueue *q = &queues[p];
 
@@ -385,7 +249,8 @@ struct request *getRequest(void)
             continue;
 
         struct QueueNode *node = q->head;
-        struct request *req = node->data;
+        uint8_t[44] &newPackage;
+        memcpy(&newPackage, q->&smallPackage[0] ,44)
 
         q->head = node->next;
 
@@ -393,7 +258,7 @@ struct request *getRequest(void)
             q->tail = NULL;
 
         free(node);
-        return req;
+        return &newPackage;
     }
 
     return NULL;
