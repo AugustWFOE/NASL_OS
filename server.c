@@ -1,6 +1,8 @@
 #define LONESHA256_STATIC
 #include "lonesha256.h"
 #include "messages.h"
+#include "hashtable.h"
+#include "hashtable.c"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,29 +20,30 @@
 
 #include <errno.h>
 
+// sem_t thread_slots;
 
-
-//sem_t thread_slots;
-
-void *adventurer(void *client); //answeringMachine
+void *adventurer(void *client); // answeringMachine
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
 int checkRequestSize(int client_fd, uint8_t *req_buf);
 
-struct request {
+struct request
+{
     uint64_t start;
     uint64_t end;
     uint8_t hash[32];
     uint8_t prio;
     int client_fd;
 };
-struct Node {
+struct QueueNode
+{
     struct request *data;
-    struct Node *next;
+    struct QueueNode *next;
 };
 
-struct PriorityQueue {
-    struct Node *head;
-    struct Node *tail;
+struct PriorityQueue
+{
+    struct QueueNode *head;
+    struct QueueNode *tail;
 };
 
 struct PriorityQueue queues[16] = {0};
@@ -55,18 +58,28 @@ pthread_t party[MAX_THREADS]; //(workers)
 pthread_mutex_t quest_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t quest_available = PTHREAD_COND_INITIALIZER;
 
-//pthread_mutex_t answer_mutex = PTHREAD_MUTEX_INITIALIZER;
+// pthread_mutex_t answer_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+HashTable database = {0};
 
 int main(int argc, char *argv[])
-{   
-
+{
+    // Makes sure that the hashtable can only be created ones
+    // otherwise it will create a memory leak.
+    // The hashtable is initialized with 1024 buckets
+    if (database.buckets == NULL)
+    {
+        if (create_hashtable(&database, 1024) != 0)
+        {
+            return 1;
+        }
+    }
 
     if (argc < 2)
     {
         printf("Please provide port number");
         return 1;
     };
-
 
     // if (sem_init(&thread_slots, 0, MAX_THREADS) == -1)
     // {
@@ -106,17 +119,16 @@ int main(int argc, char *argv[])
 
     printf("Server listening on port %u\n", port_number);
 
-
-    for (int i = 0; i < MAX_THREADS; i++){
+    for (int i = 0; i < MAX_THREADS; i++)
+    {
         pthread_create(&party[i], NULL, adventurer, NULL);
-    } //Should probably handle errors
+    } // Should probably handle errors
 
     printf("Party (workers) created!");
-    
 
     while (1)
     {
-       int client_fd = accept(server_fd, NULL, NULL);
+        int client_fd = accept(server_fd, NULL, NULL);
 
         if (client_fd == -1)
         {
@@ -127,10 +139,9 @@ int main(int argc, char *argv[])
         //
 
         printf("Client connected!\n");
-        
+
         uint8_t req_buf[PACKET_REQUEST_SIZE];
 
-        
         if (checkRequestSize(client_fd, req_buf) != 1)
         {
             close(client_fd);
@@ -141,7 +152,7 @@ int main(int argc, char *argv[])
         uint64_t start_net, end_net;
         memcpy(&start_net, &req_buf[PACKET_REQUEST_START_OFFSET], sizeof(uint64_t));
         memcpy(&end_net, &req_buf[PACKET_REQUEST_END_OFFSET], sizeof(uint64_t));
-        
+
         uint8_t priority = req_buf[PACKET_REQUEST_PRIO_OFFSET];
 
         struct request *newrequest = malloc(sizeof(struct request));
@@ -159,8 +170,8 @@ int main(int argc, char *argv[])
         newrequest->prio = priority;
         memcpy(
             newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
-        
-        //Priotime?
+
+        // Priotime?
         pthread_mutex_lock(&quest_mutex);
 
         requestScheduler(newrequest);
@@ -168,11 +179,8 @@ int main(int argc, char *argv[])
         pthread_cond_signal(&quest_available);
 
         pthread_mutex_unlock(&quest_mutex);
-        
 
-        
-        
-        //Right now creating threads at the beginning
+        // Right now creating threads at the beginning
 
         // sem_wait(&thread_slots);
 
@@ -195,76 +203,83 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void *adventurer(void *arg) {
+void *adventurer(void *arg)
+{
 
     (void)arg;
 
-    while(1) {
+    while (1)
+    {
 
         pthread_mutex_lock(&quest_mutex);
 
-        while(isQueueEmpty()){
+        while (isQueueEmpty())
+        {
             pthread_cond_wait(&quest_available, &quest_mutex);
         }
 
-
-    
         struct request *quest = getRequest();
 
         pthread_mutex_unlock(&quest_mutex);
 
         printf("Quest accepted!\n");
-        
-        printf(
-            "Searching from %llu to %llu\n",
-            (unsigned long long)quest->start,
-            (unsigned long long)quest->end
-        );
-    
-        uint64_t answer = loneshaSolver(
-            quest->start,
-            quest->end,
-            quest->hash
-        );
 
-    uint64_t answer_net = htobe64(answer);
-    
-    size_t total_sent = 0;
-    const uint8_t *buf = (const uint8_t *)&answer_net;
+        uint64_t answer;
+        uint64_t *search = lookup(&database, quest->hash);
 
-    while (total_sent < PACKET_RESPONSE_SIZE)
-    {
-        ssize_t bytes = send(
-            quest->client_fd,
-            buf + total_sent,
-            PACKET_RESPONSE_SIZE - total_sent,
-            MSG_NOSIGNAL
-        );
-
-        if (bytes < 0)
+        if (search != NULL && *search >= quest->start && *search <= quest->end)
         {
-            if (errno == EINTR)
-                continue;
+            answer = *search;
+        }
+        else
+        {
+            printf(
+                "Searching from %llu to %llu\n",
+                (unsigned long long)quest->start,
+                (unsigned long long)quest->end);
 
-            perror("send");
-            break;
+            answer = loneshaSolver(
+                quest->start,
+                quest->end,
+                quest->hash);
         }
 
-        if (bytes == 0)
-        {
-            fprintf(stderr, "send returned 0\n");
-            break;
-        }
+        uint64_t answer_net = htobe64(answer);
 
-        total_sent += (size_t)bytes;
-    }
+        size_t total_sent = 0;
+        const uint8_t *buf = (const uint8_t *)&answer_net;
+
+        while (total_sent < PACKET_RESPONSE_SIZE)
+        {
+            ssize_t bytes = send(
+                quest->client_fd,
+                buf + total_sent,
+                PACKET_RESPONSE_SIZE - total_sent,
+                MSG_NOSIGNAL);
+
+            if (bytes < 0)
+            {
+                if (errno == EINTR)
+                    continue;
+
+                perror("send");
+                break;
+            }
+
+            if (bytes == 0)
+            {
+                fprintf(stderr, "send returned 0\n");
+                break;
+            }
+
+            total_sent += (size_t)bytes;
+        }
 
         close(quest->client_fd);
 
         free(quest);
+    }
 
-    } 
-           
     return NULL;
 }
 
@@ -276,7 +291,7 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
     if (start > end)
         return 0;
 
-    for (uint64_t i = start; ; i++)
+    for (uint64_t i = start;; i++)
     {
         uint64_t le_val = htole64(i);
 
@@ -284,8 +299,11 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
                    (const unsigned char *)&le_val,
                    sizeof(le_val));
 
-        if (memcmp(hash, target_hash, 32) == 0)
+        if (memcmp(hash, target_hash, 32) == 0){
+            insert(&database, hash, i);
             return i;
+        }
+            
 
         if (i == end)
             break;
@@ -294,22 +312,25 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
     return 0;
 }
 
-int checkRequestSize(int client_fd, uint8_t *req_buf){
+int checkRequestSize(int client_fd, uint8_t *req_buf)
+{
     ssize_t total_read = 0;
-        while (total_read < PACKET_REQUEST_SIZE) {
-            ssize_t bytes = read(client_fd, req_buf + total_read, PACKET_REQUEST_SIZE - total_read);
-            if (bytes <= 0) {
-                break;
-            }
-            total_read += bytes;
-        }
-
-        if (total_read < PACKET_REQUEST_SIZE)
+    while (total_read < PACKET_REQUEST_SIZE)
+    {
+        ssize_t bytes = read(client_fd, req_buf + total_read, PACKET_REQUEST_SIZE - total_read);
+        if (bytes <= 0)
         {
-            return 0;
+            break;
         }
+        total_read += bytes;
+    }
 
-        return 1;
+    if (total_read < PACKET_REQUEST_SIZE)
+    {
+        return 0;
+    }
+
+    return 1;
 }
 
 // uint64_t queueFunc(uint64_t interval, uint8_t priority){
@@ -383,7 +404,7 @@ struct request *getRequest(void)
         if (q->head == NULL)
             continue;
 
-        struct Node *node = q->head;
+        struct QueueNode *node = q->head;
         struct request *req = node->data;
 
         q->head = node->next;
@@ -398,10 +419,12 @@ struct request *getRequest(void)
     return NULL;
 }
 
-
-int isQueueEmpty(void){
-    for (int p = 0; p < 16; p++){
-        if(queues[p].head != NULL) {
+int isQueueEmpty(void)
+{
+    for (int p = 0; p < 16; p++)
+    {
+        if (queues[p].head != NULL)
+        {
             return 0;
         }
     }
