@@ -22,7 +22,7 @@
 
 // sem_t thread_slots;
 
-void *adventurer(void *client); // answeringMachine
+void *adventurer(void *client); 
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
 int checkRequestSize(int client_fd, uint8_t *req_buf);
 
@@ -60,15 +60,11 @@ pthread_cond_t quest_available = PTHREAD_COND_INITIALIZER;
 
 pthread_mutex_t database_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// pthread_mutex_t answer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 HashTable database = {0};
 
 int main(int argc, char *argv[])
 {
-    // Makes sure that the hashtable can only be created ones
-    // otherwise it will create a memory leak.
-    // The hashtable is initialized with 1024 buckets
     if (database.buckets == NULL)
     {
         if (create_hashtable(&database, 1024) != 0)
@@ -82,12 +78,6 @@ int main(int argc, char *argv[])
         printf("Please provide port number");
         return 1;
     };
-
-    // if (sem_init(&thread_slots, 0, MAX_THREADS) == -1)
-    // {
-    //     perror("sem_init");
-    //     return 1;
-    // }
 
     uint16_t port_number = (uint16_t)atoi(argv[1]); // Perhaps this should be validated
 
@@ -171,7 +161,6 @@ int main(int argc, char *argv[])
         memcpy(
             newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
 
-        // Priotime?
         pthread_mutex_lock(&quest_mutex);
 
         requestScheduler(newrequest);
@@ -179,24 +168,6 @@ int main(int argc, char *argv[])
         pthread_cond_signal(&quest_available);
 
         pthread_mutex_unlock(&quest_mutex);
-
-        // Right now creating threads at the beginning
-
-        // sem_wait(&thread_slots);
-
-        // if (pthread_create(&thread, NULL, adventurer, getRequest()) != 0)
-        // {
-        //     perror("pthread_create");
-
-        //     sem_post(&thread_slots);
-
-        //     close(client_fd);
-        //     free(newrequest);
-        // }
-        // else
-        // {
-        //     pthread_detach(thread);
-        // }
     }
 
     close(server_fd);
