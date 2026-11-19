@@ -1,6 +1,6 @@
 CC = gcc
 
-CFLAGS = -Wall -Wextra -g
+CFLAGS = -O3 -Wall -Wextra -g
 LIBS = -lpthread -lm
 
 server: server.c
