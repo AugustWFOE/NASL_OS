@@ -34,16 +34,16 @@ struct request
     uint8_t prio;
     int client_fd;
 };
-struct Node
+struct QueueNode
 {
     struct request *data;
-    struct Node *next;
+    struct QueueNode *next;
 };
 
 struct PriorityQueue
 {
-    struct Node *head;
-    struct Node *tail;
+    struct QueueNode *head;
+    struct QueueNode *tail;
 };
 
 struct PriorityQueue queues[16] = {0};
@@ -376,7 +376,7 @@ int requestScheduler(struct request *req)
     {
         return -1;
     }
-    struct Node *node = malloc(sizeof(struct Node));
+    struct QueueNode *node = malloc(sizeof(struct QueueNode));
     if (node == NULL)
         return -1;
 
@@ -408,7 +408,7 @@ struct request *getRequest(void)
         if (q->head == NULL)
             continue;
 
-        struct Node *node = q->head;
+        struct QueueNode *node = q->head;
         struct request *req = node->data;
 
         q->head = node->next;
