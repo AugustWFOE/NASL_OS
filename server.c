@@ -372,7 +372,7 @@ int requestScheduler(struct request *req)
 {
     uint8_t p = req -> prio - 1;
 
-    struct Node *node = malloc(sizeof(struct Node));
+    struct QueueNode *node = malloc(sizeof(struct QueueNode));
     if (node == NULL)
         return -1;
 
