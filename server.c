@@ -58,6 +58,8 @@ pthread_t party[MAX_THREADS]; //(workers)
 pthread_mutex_t quest_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t quest_available = PTHREAD_COND_INITIALIZER;
 
+pthread_mutex_t database_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 // pthread_mutex_t answer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 HashTable database = {0};
@@ -225,13 +227,20 @@ void *adventurer(void *arg)
         printf("Quest accepted!\n");
 
         uint64_t answer;
+        int found_answer = 0;
+
+        pthread_mutex_lock(&database_mutex);
         uint64_t *search = lookup(&database, quest->hash);
+        
 
         if (search != NULL && *search >= quest->start && *search <= quest->end)
         {
             answer = *search;
+            found_answer = 1;
         }
-        else
+        pthread_mutex_unlock(&database_mutex);
+
+        if(found_answer == 0)
         {
             printf(
                 "Searching from %llu to %llu\n",
@@ -300,7 +309,9 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
                    sizeof(le_val));
 
         if (memcmp(hash, target_hash, 32) == 0){
+            pthread_mutex_lock(&database_mutex);
             insert(&database, hash, i);
+            pthread_mutex_unlock(&database_mutex);
             return i;
         }
             
