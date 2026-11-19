@@ -135,8 +135,6 @@ int main(int argc, char *argv[])
             perror("accept");
             continue;
         }
-        pthread_t thread;
-        //
 
         printf("Client connected!\n");
 
