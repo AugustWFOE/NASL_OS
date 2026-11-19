@@ -349,11 +349,8 @@ int checkRequestSize(int client_fd, uint8_t *req_buf){
 
 int requestScheduler(struct request *req)
 {
-    uint8_t p = req -> prio;
+    uint8_t p = req -> prio - 1;
 
-    if (p >= 16){
-        return -1;
-    }
     struct Node *node = malloc(sizeof(struct Node));
     if (node == NULL)
         return -1;
