@@ -30,9 +30,10 @@ insert(HashTable *table, uint8_t *hash, uint64_t answer)
 int create_hashtable(HashTable *table, size_t bucket_count){
 
     //validate if we have a hashtable and that we have more than 0 buckets in it.
-    if(table == NULL || bucket_count == 0){
+    if(table == NULL || bucket_count == 0 || (bucket_count & (bucket_count-1)) != 0){
         return -1;
     }
+    
 
     //alucates memory for all the buckets.
     table->buckets = calloc(bucket_count, sizeof(Bucket));
