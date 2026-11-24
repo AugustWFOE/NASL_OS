@@ -19,7 +19,6 @@
 #include <errno.h>
 
 
-
 //sem_t thread_slots;
 
 void *adventurer(void *client); //answeringMachine
@@ -276,6 +275,9 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
     if (start > end)
         return 0;
 
+    uint64_t first_bytes;
+    memcpy(&first_bytes, target_hash, 8);
+
     for (uint64_t i = start; ; i++)
     {
         uint64_t le_val = htole64(i);
@@ -284,7 +286,10 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
                    (const unsigned char *)&le_val,
                    sizeof(le_val));
 
-        if (memcmp(hash, target_hash, 32) == 0)
+        uint64_t first_bytes_of_hash;
+        memcpy(&first_bytes_of_hash, hash, 8);
+
+        if (first_bytes_of_hash == first_bytes && memcmp(hash, target_hash, 32) == 0)
             return i;
 
         if (i == end)
@@ -311,41 +316,6 @@ int checkRequestSize(int client_fd, uint8_t *req_buf){
 
         return 1;
 }
-
-// uint64_t queueFunc(uint64_t interval, uint8_t priority){
-//     if (interval < 500000){
-//         priority = priority + 2;
-//     }
-//     else if (interval < 1000000){
-//         priority = priority + 1;
-//     }
-//     return priority;
-// }
-
-// uint64_t queueFunc(uint64_t interval, uint8_t priority){
-//     return interval * priority * priority;
-// }
-
-// uint64_t queueFunc(uint64_t interval, uint8_t priority){
-//     return (uint64_t)sqrt((double)interval) * priority;
-// }
-
-// uint64_t queueFunc(uint64_t interval, uint8_t priority){
-//     if (interval <= 1) return priority;
-//     return (uint64_t)log2((double)interval) * priority;
-// }
-
-// uint64_t queueFunc(uint64_t interval, uint8_t priority){
-//     if (interval <= 1) return priority;
-//     return (uint64_t)log2(log2((double)interval + 2.0) +1.0) * priority;
-// }
-
-// uint64_t queueFunc(uint64_t interval, uint8_t priority){
-//     if (interval <= 1) return priority;
-
-//     double inverse_range = 1000000.0 / log2((double)interval);
-//     return (uint64_t)(inverse_range * (double)priority);
-// }
 
 int requestScheduler(struct request *req)
 {
