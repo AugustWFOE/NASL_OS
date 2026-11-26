@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
         
         sem_wait(&thread_slots);
 
-        if (pthread_create(&thread, NULL, answeringMachine, newrequest) != 0)
+        if (pthread_create(&thread, NULL, answeringMachine, *newrequest) != 0)
         {
             perror("pthread_create");
 
