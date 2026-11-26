@@ -50,17 +50,17 @@ int create_hashtable(HashTable *table, size_t bucket_count){
 static uint64_t hash_function(HashTable *table, uint8_t *hash){
     //hash funktion
     uint64_t bucket_index = 0;
-    uint64_t hash8bytes;
+    // uint64_t hash8bytes;
 
-    memcpy(&hash8bytes, hash, 8);
+    // memcpy(&hash8bytes, hash, 8);
 
-    bucket_index = hash8bytes & (table->buckets_count - 1);
+    // bucket_index = hash8bytes & (table->buckets_count - 1);
 
 
     //takes modulo of all the bytes in the hash
-    // for(int i = 0; i<32; i++){
-    //     bucket_index = ((bucket_index * 256) + hash[i]) % table->buckets_count;
-    // }
+    for(int i = 0; i<32; i++){
+        bucket_index = ((bucket_index * 256) + hash[i]) % table->buckets_count;
+    }
 
     return bucket_index;
 }
