@@ -23,6 +23,7 @@ uint64_t *lookup(HashTable *table, uint8_t *hash);
 int validate_output(uint8_t *hash, uint64_t answer);
 int insert(HashTable *table, uint8_t *hash, uint64_t answer);
 void destroy_hashtable(HashTable *table);
+void clear_hashtable(HashTable *table);
 
 #endif
 
