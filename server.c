@@ -593,6 +593,7 @@ void sendAnswer(int client_fd, uint64_t answer)
     counter++;
     if (counter == 100){
         destroy_hashtable(&database);
+        printf("Hash table deleted");
     }
 }
 
