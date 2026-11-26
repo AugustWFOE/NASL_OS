@@ -27,7 +27,6 @@ struct request {
     uint64_t start;
     uint64_t end;
     uint8_t hash[32];
-    uint64_t interval;
     uint8_t prio;
     int client_fd;
 };
@@ -128,7 +127,6 @@ int main(int argc, char *argv[])
         newrequest->start = be64toh(start_net);
         newrequest->end = be64toh(end_net);
         newrequest->client_fd = client_fd;
-        newrequest->interval = (newrequest->end - newrequest->start)
         newrequest->prio = priority;
         memcpy(
             newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
@@ -136,7 +134,7 @@ int main(int argc, char *argv[])
         
         sem_wait(&thread_slots);
 
-        if (pthread_create(&thread, NULL, answeringMachine, &newrequest) != 0)
+        if (pthread_create(&thread, NULL, answeringMachine, newrequest) != 0)
         {
             perror("pthread_create");
 
