@@ -238,69 +238,54 @@ int checkRequestSize(int client_fd, uint8_t *req_buf){
         return 1;
 }
 
-void requestScheduler(void *arg)
+
+int requestScheduler(struct request *req)
 {
-    struct request *newrequest = (struct request *)arg;
+    uint8_t p = req -> prio - 1;
 
-    struct Node *newNode = malloc(sizeof(struct Node));
-    if (newNode == NULL)
-        return;
+    struct QueueNode *node = malloc(sizeof(struct QueueNode));
+    if (node == NULL)
+        return -1;
 
-    newNode->value = queueFunc(newrequest->interval,
-                               newrequest->prio);
-    newNode->data = *newrequest;
+    node->data = req;
+    node->next = NULL;
 
-    if (*headPointer == NULL)
+    struct PriorityQueue *q = &queues[p];
+
+    if (q->tail == NULL)
     {
-        *headPointer = newNode;
-        newNode->next = newNode;
-        newNode->prev = newNode;
-        return;
-    }
-
-    struct Node *current = *headPointer;
-
-    // Find the first node with a smaller value
-    while (current->value >= newNode->value)
-    {
-        current = current->next;
-
-        if (current == *headPointer)
-            break;
-    }
-
-    // Insert newNode immediately before current
-    newNode->next = current;
-    newNode->prev = current->prev;
-
-    current->prev->next = newNode;
-    current->prev = newNode;
-
-    // Update head if the new node is the largest
-    if (newNode->value > (*headPointer)->value)
-    {
-        *headPointer = newNode;
-    }
-}
-
-struct request getRequest(void)
-{
-    struct Node *oldHead = *headPointer;
-    struct request temp = oldHead->data;
-
-    if (oldHead->next == oldHead)
-    {
-        *headPointer = NULL;
+        q->head = node;
+        q->tail = node;
     }
     else
     {
-        oldHead->prev->next = oldHead->next;
-        oldHead->next->prev = oldHead->prev;
-
-        *headPointer = oldHead->next;
+        q->tail->next = node;
+        q->tail = node;
     }
 
-    free(oldHead);
+    return 0;
+}
 
-    return temp;
+struct request *getRequest(void)
+{
+    for (int p = 15; p >= 0; p--)
+    {
+        struct PriorityQueue *q = &queues[p];
+
+        if (q->head == NULL)
+            continue;
+
+        struct QueueNode *node = q->head;
+        struct request *req = node->data;
+
+        q->head = node->next;
+
+        if (q->head == NULL)
+            q->tail = NULL;
+
+        free(node);
+        return req;
+    }
+
+    return NULL;
 }
