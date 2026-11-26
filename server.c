@@ -131,10 +131,13 @@ int main(int argc, char *argv[])
         memcpy(
             newrequest->hash, &req_buf[PACKET_REQUEST_HASH_OFFSET], 32);
         
+        //Priotime?
+        requestScheduler(newrequest);
+        //
         
         sem_wait(&thread_slots);
 
-        if (pthread_create(&thread, NULL, answeringMachine, newrequest) != 0)
+        if (pthread_create(&thread, NULL, answeringMachine, getRequest()) != 0)
         {
             perror("pthread_create");
 
@@ -189,6 +192,7 @@ void *answeringMachine(void *arg)
     return NULL;
 }
 
+uint_64_t queueFunc(uint_64_t interval, )
 
 uint64_t loneshaSolver(uint64_t start, uint64_t end,
                        const uint8_t *target_hash)
@@ -232,4 +236,71 @@ int checkRequestSize(int client_fd, uint8_t *req_buf){
         }
 
         return 1;
+}
+
+void requestScheduler(void *arg)
+{
+    struct request *newrequest = (struct request *)arg;
+
+    struct Node *newNode = malloc(sizeof(struct Node));
+    if (newNode == NULL)
+        return;
+
+    newNode->value = queueFunc(newrequest->interval,
+                               newrequest->prio);
+    newNode->data = *newrequest;
+
+    if (*headPointer == NULL)
+    {
+        *headPointer = newNode;
+        newNode->next = newNode;
+        newNode->prev = newNode;
+        return;
+    }
+
+    struct Node *current = *headPointer;
+
+    // Find the first node with a smaller value
+    while (current->value >= newNode->value)
+    {
+        current = current->next;
+
+        if (current == *headPointer)
+            break;
+    }
+
+    // Insert newNode immediately before current
+    newNode->next = current;
+    newNode->prev = current->prev;
+
+    current->prev->next = newNode;
+    current->prev = newNode;
+
+    // Update head if the new node is the largest
+    if (newNode->value > (*headPointer)->value)
+    {
+        *headPointer = newNode;
+    }
+}
+
+struct request getRequest(void)
+{
+    struct Node *oldHead = *headPointer;
+    struct request temp = oldHead->data;
+
+    if (oldHead->next == oldHead)
+    {
+        *headPointer = NULL;
+    }
+    else
+    {
+        oldHead->prev->next = oldHead->next;
+        oldHead->next->prev = oldHead->prev;
+
+        *headPointer = oldHead->next;
+    }
+
+    free(oldHead);
+
+    return temp;
 }
