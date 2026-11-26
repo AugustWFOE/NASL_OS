@@ -60,7 +60,6 @@ pthread_mutex_t database_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // pthread_mutex_t answer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-HashTable database = {0};
 
 int main(int argc, char *argv[])
 {
