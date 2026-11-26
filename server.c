@@ -58,24 +58,10 @@ pthread_t party[MAX_THREADS]; //(workers)
 pthread_mutex_t quest_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t quest_available = PTHREAD_COND_INITIALIZER;
 
-pthread_mutex_t database_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 // pthread_mutex_t answer_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-HashTable database = {0};
 
 int main(int argc, char *argv[])
 {
-    // Makes sure that the hashtable can only be created ones
-    // otherwise it will create a memory leak.
-    // The hashtable is initialized with 1024 buckets
-    if (database.buckets == NULL)
-    {
-        if (create_hashtable(&database, 1024) != 0)
-        {
-            return 1;
-        }
-    }
 
     if (argc < 2)
     {
@@ -225,31 +211,16 @@ void *adventurer(void *arg)
         printf("Quest accepted!\n");
 
         uint64_t answer;
-        int found_answer = 0;
 
-        pthread_mutex_lock(&database_mutex);
-        uint64_t *search = lookup(&database, quest->hash);
-        
+        printf(
+            "Searching from %llu to %llu\n",
+            (unsigned long long)quest->start,
+            (unsigned long long)quest->end);
 
-        if (search != NULL && *search >= quest->start && *search <= quest->end)
-        {
-            answer = *search;
-            found_answer = 1;
-        }
-        pthread_mutex_unlock(&database_mutex);
-
-        if(found_answer == 0)
-        {
-            printf(
-                "Searching from %llu to %llu\n",
-                (unsigned long long)quest->start,
-                (unsigned long long)quest->end);
-
-            answer = loneshaSolver(
-                quest->start,
-                quest->end,
-                quest->hash);
-        }
+        answer = loneshaSolver(
+            quest->start,
+            quest->end,
+            quest->hash);
 
         uint64_t answer_net = htobe64(answer);
 
@@ -300,7 +271,7 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
 
     uint64_t first_bytes;
     memcpy(&first_bytes, target_hash, 8);
-  
+
     for (uint64_t i = start;; i++)
     {
         uint64_t le_val = htole64(i);
@@ -312,13 +283,13 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
         uint64_t first_bytes_of_hash;
         memcpy(&first_bytes_of_hash, hash, 8);
 
-        if (first_bytes_of_hash == first_bytes && memcmp(hash, target_hash, 32) == 0){
+        if (first_bytes_of_hash == first_bytes && memcmp(hash, target_hash, 32) == 0)
+        {
             pthread_mutex_lock(&database_mutex);
             insert(&database, hash, i);
             pthread_mutex_unlock(&database_mutex);
             return i;
         }
-            
 
         if (i == end)
             break;
@@ -350,7 +321,7 @@ int checkRequestSize(int client_fd, uint8_t *req_buf)
 
 int requestScheduler(struct request *req)
 {
-    uint8_t p = req -> prio - 1;
+    uint8_t p = req->prio - 1;
 
     struct QueueNode *node = malloc(sizeof(struct QueueNode));
     if (node == NULL)
