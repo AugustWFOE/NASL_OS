@@ -11,92 +11,164 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
 #include <stdint.h>
 #include <string.h>
 #include <endian.h>
-#include <semaphore.h>
-#include <math.h>
-
 #include <errno.h>
 
-
-void *adventurer(void *client); 
-uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
-
-struct QueueNode
-{
-    uint8_t smallPackage[45];
-    struct QueueNode *next;
-};
-
-struct PriorityQueue
-{
-    struct QueueNode *head;
-    struct QueueNode *tail;
-};
-
-struct PriorityQueue queues[16] = {0};
-
-int requestScheduler(struct request *req);
-
-int isQueueEmpty(void);
-
 #define MAX_THREADS 4
-pthread_t party[MAX_THREADS]; //(workers)
+#define NUM_PRIORITIES 16
+#define QUEUE_CAPACITY 4096
+
+#define HASH_OFFSET  0
+#define START_OFFSET 32
+#define END_OFFSET   40
+#define FD_OFFSET    48
+#define PRIO_OFFSET  (FD_OFFSET + sizeof(int))
+#define PACKAGE_SIZE (PRIO_OFFSET + 1)
+
+uint8_t queues[NUM_PRIORITIES][QUEUE_CAPACITY][PACKAGE_SIZE];
+
+unsigned int head[NUM_PRIORITIES] = {0};
+unsigned int tail[NUM_PRIORITIES] = {0};
+unsigned int count[NUM_PRIORITIES] = {0};
+
+pthread_t party[MAX_THREADS];
 
 pthread_mutex_t quest_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t quest_available = PTHREAD_COND_INITIALIZER;
+pthread_cond_t queue_space = PTHREAD_COND_INITIALIZER;
 
 pthread_mutex_t database_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-
 HashTable database = {0};
+
+void *adventurer(void *arg);
+uint64_t loneshaSolver(const uint8_t *packet);
+
+int requestScheduler(const uint8_t *packet);
+int getRequest(uint8_t *packet);
+int isQueueEmpty(void);
+
 
 int main(int argc, char *argv[])
 {
-    if (database.buckets == NULL)
-    {
-        if (create_hashtable(&database, 1024) != 0)
-        {
-            return 1;
-        }
-    }
+    if (create_hashtable(&database, 1024) != 0)
+        return 1;
 
     if (argc < 2)
     {
-        printf("Please provide port number");
+        printf("Please provide port number\n");
         return 1;
-    };
+    }
 
-    uint16_t port_number = (uint16_t)atoi(argv[1]); // Perhaps this should be validated
+    uint16_t port_number = (uint16_t)atoi(argv[1]);
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-    struct sockaddr_in address;
+    if (server_fd < 0)
+    {
+        perror("socket");
+        return 1;
+    }
+
+    int opt = 1;
+
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR,
+               &opt, sizeof(opt));
+
+    struct sockaddr_in address = {0};
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = htonl(INADDR_ANY);
     address.sin_port = htons(port_number);
 
+    if (bind(server_fd, (struct sockaddr *)&address,
+             sizeof(address)) < 0)
+    {
+        perror("bind");
+        close(server_fd);
+        return 1;
+    }
+
+    if (listen(server_fd, SOMAXCONN) < 0)
+    {
+        perror("listen");
+        close(server_fd);
+        return 1;
+    }
 
     for (int i = 0; i < MAX_THREADS; i++)
     {
-        pthread_create(&party[i], NULL, adventurer, NULL);
-    } 
+        if (pthread_create(&party[i], NULL,
+                           adventurer, NULL) != 0)
+        {
+            fprintf(stderr, "Could not create worker\n");
+            return 1;
+        }
+    }
 
     while (1)
     {
         int client_fd = accept(server_fd, NULL, NULL);
 
-        uint8_t smallPackage[45];
-        memcpy(&smallPackage, &req_buf[0], 40);
-        memcpy(&smallPackage[40], &client_fd,4);
-        memcpy(&smallPackage[44], &req_buf[PACKET_REQUEST_PRIO_OFFSET],1);
-        
+        if (client_fd < 0)
+        {
+            if (errno == EINTR)
+                continue;
+
+            perror("accept");
+            continue;
+        }
+
+        uint8_t req_buf[PACKET_REQUEST_SIZE];
+        size_t received = 0;
+
+        while (received < PACKET_REQUEST_SIZE)
+        {
+            ssize_t bytes = recv(
+                client_fd,
+                req_buf + received,
+                PACKET_REQUEST_SIZE - received,
+                0
+            );
+
+            if (bytes < 0 && errno == EINTR)
+                continue;
+
+            if (bytes <= 0)
+                break;
+
+            received += (size_t)bytes;
+        }
+
+        uint8_t smallPackage[PACKAGE_SIZE];
+
+        memcpy(smallPackage, req_buf, 48);
+
+        memcpy(smallPackage + FD_OFFSET,
+               &client_fd, sizeof(client_fd));
+
+        smallPackage[PRIO_OFFSET] =
+            req_buf[PACKET_REQUEST_PRIO_OFFSET];
+
+        uint8_t p = smallPackage[PRIO_OFFSET];
+
+        if (p >= NUM_PRIORITIES)
+        {
+            close(client_fd);
+            continue;
+        }
+
         pthread_mutex_lock(&quest_mutex);
 
-        requestScheduler(&smallPackage);
+        while (count[p] == QUEUE_CAPACITY)
+        {
+            pthread_cond_wait(&queue_space,
+                              &quest_mutex);
+        }
+
+        requestScheduler(smallPackage);
 
         pthread_cond_signal(&quest_available);
 
@@ -107,61 +179,83 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+
 void *adventurer(void *arg)
 {
-
     (void)arg;
 
     while (1)
     {
+        uint8_t quest[PACKAGE_SIZE];
 
         pthread_mutex_lock(&quest_mutex);
 
         while (isQueueEmpty())
         {
-            pthread_cond_wait(&quest_available, &quest_mutex);
+            pthread_cond_wait(&quest_available,
+                              &quest_mutex);
         }
 
-        uint8_t quest[44];
-        memcpy(&quest[44], getRequest(),44);
+        getRequest(quest);
+
+        pthread_cond_signal(&queue_space);
 
         pthread_mutex_unlock(&quest_mutex);
 
-        printf("Quest accepted!\n");
+        int client_fd;
 
-        uint64_t answer;
+        memcpy(&client_fd, quest + FD_OFFSET,
+               sizeof(client_fd));
+
+        uint64_t start, end;
+
+        memcpy(&start, quest + START_OFFSET, 8);
+        memcpy(&end, quest + END_OFFSET, 8);
+
+        start = be64toh(start);
+        end = be64toh(end);
+
+        uint64_t answer = 0;
         int found_answer = 0;
 
         pthread_mutex_lock(&database_mutex);
-        uint64_t *search = lookup(&database, *quest[32]);
-        
 
-        if (search != NULL && *search >= quest->start && *search <= quest->end)
+        uint64_t *search = lookup(
+            &database,
+            quest + HASH_OFFSET
+        );
+
+        if (search != NULL)
         {
-            answer = *search;
-            found_answer = 1;
+            if (*search >= start && *search <= end)
+            {
+                answer = *search;
+                found_answer = 1;
+            }
         }
+
         pthread_mutex_unlock(&database_mutex);
 
-        if(found_answer == 0)
+        if (!found_answer)
         {
-            answer = loneshaSolver(
-                &quest[44]
-            );
+            answer = loneshaSolver(quest);
         }
 
         uint64_t answer_net = htobe64(answer);
 
         size_t total_sent = 0;
-        const uint8_t *buf = (const uint8_t *)&answer_net;
+
+        const uint8_t *buf =
+            (const uint8_t *)&answer_net;
 
         while (total_sent < PACKET_RESPONSE_SIZE)
         {
             ssize_t bytes = send(
-                quest->client_fd,
+                client_fd,
                 buf + total_sent,
                 PACKET_RESPONSE_SIZE - total_sent,
-                MSG_NOSIGNAL);
+                MSG_NOSIGNAL
+            );
 
             if (bytes < 0)
             {
@@ -173,44 +267,52 @@ void *adventurer(void *arg)
             }
 
             if (bytes == 0)
-            {
-                fprintf(stderr, "send returned 0\n");
                 break;
-            }
 
             total_sent += (size_t)bytes;
         }
 
-        close(quest->client_fd);
-
-        free(quest);
+        close(client_fd);
     }
 
     return NULL;
 }
 
-uint64_t loneshaSolver(const uint8_t target_hash[44])
+
+uint64_t loneshaSolver(const uint8_t *packet)
 {
     uint8_t hash[32];
+    uint64_t start, end;
+
+    memcpy(&start, packet + START_OFFSET, 8);
+    memcpy(&end, packet + END_OFFSET, 8);
+
+    start = be64toh(start);
+    end = be64toh(end);
 
     if (start > end)
         return 0;
 
-    for (uint64_t i = start;; i++)
+    for (uint64_t i = start; ; i++)
     {
         uint64_t le_val = htole64(i);
 
-        lonesha256(hash,
-                   (const unsigned char *)&le_val,
-                   sizeof(le_val));
+        lonesha256(
+            hash,
+            (const unsigned char *)&le_val,
+            sizeof(le_val)
+        );
 
-        if (memcmp(hash, target_hash, 32) == 0){
+        if (memcmp(hash, packet + HASH_OFFSET, 32) == 0)
+        {
             pthread_mutex_lock(&database_mutex);
+
             insert(&database, hash, i);
+
             pthread_mutex_unlock(&database_mutex);
+
             return i;
         }
-            
 
         if (i == end)
             break;
@@ -219,59 +321,62 @@ uint64_t loneshaSolver(const uint8_t target_hash[44])
     return 0;
 }
 
-int requestScheduler(uint8_t[] &smallPackage)
+
+int requestScheduler(const uint8_t *packet)
 {
-    uint8_t p = *smallPackage[45];
+    uint8_t p = packet[PRIO_OFFSET];
 
-    struct PriorityQueue *q = &queues[p];
+    if (p >= NUM_PRIORITIES)
+        return -1;
 
-    if (q->tail == NULL)
-    {
-        q->head = node;
-        q->tail = node;
-    }
-    else
-    {
-        q->tail->next = node;
-        q->tail = node;
-    }
+    if (count[p] == QUEUE_CAPACITY)
+        return -1;
+
+    memcpy(
+        queues[p][tail[p]],
+        packet,
+        PACKAGE_SIZE
+    );
+
+    tail[p] = (tail[p] + 1) % QUEUE_CAPACITY;
+
+    count[p]++;
 
     return 0;
 }
 
-struct request *getRequest(void)
-{
-    for (int p = 15; p >= 0; p--)
-    {
-        struct PriorityQueue *q = &queues[p];
 
-        if (q->head == NULL)
+int getRequest(uint8_t *packet)
+{
+    for (int p = NUM_PRIORITIES - 1; p >= 0; p--)
+    {
+        if (count[p] == 0)
             continue;
 
-        struct QueueNode *node = q->head;
-        uint8_t[44] &newPackage;
-        memcpy(&newPackage, q->&smallPackage[0] ,44)
+        memcpy(
+            packet,
+            queues[p][head[p]],
+            PACKAGE_SIZE
+        );
 
-        q->head = node->next;
+        head[p] = (head[p] + 1) % QUEUE_CAPACITY;
 
-        if (q->head == NULL)
-            q->tail = NULL;
+        count[p]--;
 
-        free(node);
-        return &newPackage;
+        return 0;
     }
 
-    return NULL;
+    return -1;
 }
+
 
 int isQueueEmpty(void)
 {
-    for (int p = 0; p < 16; p++)
+    for (int p = 0; p < NUM_PRIORITIES; p++)
     {
-        if (queues[p].head != NULL)
-        {
+        if (count[p] != 0)
             return 0;
-        }
     }
+
     return 1;
 }
