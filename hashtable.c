@@ -124,3 +124,15 @@ int insert(HashTable *table, uint8_t *hash, uint64_t answer){
 
     return 0;
 }
+void destroy_hashtable(HashTable *table)
+{
+    if (table == NULL)
+        return;
+
+    clear_hashtable(table);
+
+    free(table->buckets);
+
+    table->buckets = NULL;
+    table->buckets_count = 0;
+}

@@ -53,6 +53,7 @@ struct QueueNode
     struct request *data;
     struct QueueNode *next;
 };
+uint64_t counter = 0;
 
 
 typedef struct
@@ -589,6 +590,10 @@ void sendAnswer(int client_fd, uint64_t answer)
     }
 
     close(client_fd);
+    counter++;
+    if (counter == 100){
+        destroy_hashtable(&database);
+    }
 }
 
 
