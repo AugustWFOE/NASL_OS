@@ -282,6 +282,10 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
 
         uint64_t first_bytes_of_hash;
         memcpy(&first_bytes_of_hash, hash, 8);
+
+        if (first_bytes_of_hash == first_bytes && memcmp(hash, target_hash, 32) == 0){
+            return i;
+        }
             
 
         if (i == end)
