@@ -26,8 +26,8 @@ insert(HashTable *table, uint8_t *hash, uint64_t answer)
     -allocate memory for the new Node and addes it at the front of the link-list.
 */
 
-int create_hashtable(HashTable *table, size_t bucket_count){
 
+int create_hashtable(HashTable *table, size_t bucket_count){
 
     //validate if we have a hashtable and that we have more than 0 buckets in it.
     if(table == NULL || bucket_count == 0){
