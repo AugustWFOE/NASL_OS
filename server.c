@@ -56,8 +56,6 @@ pthread_t party[MAX_THREADS]; //(workers)
 pthread_mutex_t quest_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t quest_available = PTHREAD_COND_INITIALIZER;
 
-pthread_mutex_t database_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 // pthread_mutex_t answer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
@@ -284,13 +282,6 @@ uint64_t loneshaSolver(uint64_t start, uint64_t end,
 
         uint64_t first_bytes_of_hash;
         memcpy(&first_bytes_of_hash, hash, 8);
-
-        if (first_bytes_of_hash == first_bytes && memcmp(hash, target_hash, 32) == 0){
-            pthread_mutex_lock(&database_mutex);
-            insert(&database, hash, i);
-            pthread_mutex_unlock(&database_mutex);
-            return i;
-        }
             
 
         if (i == end)
