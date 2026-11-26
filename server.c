@@ -1,8 +1,6 @@
 #define LONESHA256_STATIC
 #include "lonesha256.h"
 #include "messages.h"
-#include "hashtable.h"
-#include "hashtable.c"
 
 #include <stdio.h>
 #include <stdlib.h>
