@@ -591,9 +591,13 @@ void sendAnswer(int client_fd, uint64_t answer)
 
     close(client_fd);
     counter++;
-    if (counter == 100){
-        destroy_hashtable(&database);
-        printf("Hash table deleted");
+
+    if (counter >= 100)
+    {
+        clear_hashtable(&database);
+        counter = 0;
+
+        printf("Hash table cleared\n");
     }
 }
 
