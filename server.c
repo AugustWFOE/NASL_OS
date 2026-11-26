@@ -20,8 +20,8 @@ sem_t thread_slots;
 void *answeringMachine(void *client);
 uint64_t loneshaSolver(uint64_t start, uint64_t end, const uint8_t *target_hash);
 int checkRequestSize(int client_fd, uint8_t *req_buf);
-void requestScheduler(void *arg);
-struct request getRequest(void);
+int requestScheduler(struct request *req);
+struct request *getRequest(void);
 
 struct request {
     uint64_t start;
@@ -30,15 +30,21 @@ struct request {
     uint8_t prio;
     int client_fd;
 };
-struct Node {
-    struct request* data;
-    uint64_t value;
-    struct Node* next;
-    struct Node* prev;
+struct QueueNode
+{
+    struct request *data;
+    struct QueueNode *next;
 };
-struct request* headPointer;
 
-#define MAX_THREADS 2
+struct PriorityQueue
+{
+    struct QueueNode *head;
+    struct QueueNode *tail;
+};
+
+struct PriorityQueue queues[16] = {0};
+
+#define MAX_THREADS 4
 
 int main(int argc, char *argv[])
 {   
